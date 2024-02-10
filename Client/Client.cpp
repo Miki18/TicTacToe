@@ -1,4 +1,4 @@
-#define WIN32_LEAN_AND_MEAN   //EXAMPLE CODE TO CHECK IF LIBRARIES WORK
+#define WIN32_LEAN_AND_MEAN   //EXAMPLE CODE TO CHECK IF LIBRARIES WORK (client)
 
 #include <math.h>
 #include <GL/glew.h>
