@@ -47,7 +47,7 @@ int main()
 
     //Glew initialization
     if (glewInit() != GLEW_OK) {
-        fprintf(stderr, "Nie mo¿na zainicjowaæ GLEW.\n");
+        fprintf(stderr, "Cannot initialize GLEW.\n");
         exit(EXIT_FAILURE);
     }
 
