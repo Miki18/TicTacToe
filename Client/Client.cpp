@@ -19,6 +19,13 @@
 #include <fstream>
 #include <mutex>
 #include <condition_variable>
+#include "LoadTexture.h"
+
+enum Screen {            //enum - client has can be in different menus like main menu or multiplayer game menu.
+    Single_Multi_Choose,   // The enum help us to control where the client is at this time and what should see right now.
+    Single_Menu,
+    IP_Insert
+};
 
 int main()
 {
@@ -29,7 +36,9 @@ int main()
         exit(EXIT_FAILURE);
     }
 
-    window = glfwCreateWindow(1280, 720, "TicTacToe", NULL, NULL);  //create window (size and title)
+    window = glfwCreateWindow(1920, 1080, "TicTacToe", NULL, NULL);  //create window (size and title)
+    glfwSetWindowSizeLimits(window, 1920, 1080, 1920, 1080);
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
     glfwMakeContextCurrent(window);
 
     if (glewInit() != GLEW_OK) { //Glew initialization
@@ -44,16 +53,44 @@ int main()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
-    do    //main loop
+    Screen screen = Single_Multi_Choose;
+
+    do //main loop
     {
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);  //Set background color
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);  //Set background color
+        glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();   //ImGui updating new frame
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("TicTacToe");   //create ImGui window for example
-        ImGui::End();
+        if (screen == Single_Multi_Choose)
+        {
+            //TicTacToe LOGO
+            texture = loadTexture("TicTacToe.bmp");
+            ImGui::SetNextWindowPos(ImVec2(740, 110), NULL);             //window position
+            ImGui::SetNextWindowSize(ImVec2(408,180), NULL);
+            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);   //create ImGui window for example
+            ImGuiStyle& style = ImGui::GetStyle();                      // ImGui background color (white)
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+            ImGui::Image((void*)(intptr_t)texture, ImVec2(400,150));
+            ImGui::End();
+
+            //Single Player Button
+
+            //Multi Player Button
+
+            //Exit Button
+            ImGui::SetNextWindowPos(ImVec2(740, 820), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 150), NULL);
+            ImGui::Begin("Exit", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
+            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            if (ImGui::Button("Exit", ImVec2(400, 150)))
+            {
+                exit(0);
+            }
+            ImGui::End();
+        }
 
         ImGui::Render();    //Rendering ImGui
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -47,12 +47,13 @@ int main()
     do    //main loop
     {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);  //Set background color
+        glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_NewFrame();   //ImGui updating new frame
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("TicTacToe");   //create ImGui window for example
+        ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar);   //create ImGui window for example
         ImGui::End();
 
         ImGui::Render();    //Rendering ImGui
