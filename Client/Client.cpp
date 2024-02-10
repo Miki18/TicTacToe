@@ -21,8 +21,10 @@
 #include <condition_variable>
 #include "LoadTexture.h"
 
-enum Screen {            //enum - client has can be in different menus like main menu or multiplayer game menu.
-    Single_Multi_Choose,   // The enum help us to control where the client is at this time and what should see right now.
+//enum - client has can be in different menus like main menu or multiplayer game menu.
+// The enum help us to control where the client is at this time and what should see right now.
+enum Screen { 
+    Single_Multi_Choose,
     Single_Menu,
     IP_Insert
 };
@@ -31,36 +33,44 @@ int main()
 {
     GLFWwindow* window{};   //GLFW window
 
-    if (!glfwInit()) { //GLFW initialization
+    //GLFW initialization
+    if (!glfwInit()) {
         fprintf(stderr, "Can't run GLFW.\n");
         exit(EXIT_FAILURE);
     }
 
-    window = glfwCreateWindow(1920, 1080, "TicTacToe", NULL, NULL);  //create window (size and title)
+    //create window (size and title)
+    window = glfwCreateWindow(1920, 1080, "TicTacToe", NULL, NULL);
     glfwSetWindowSizeLimits(window, 1920, 1080, 1920, 1080);
     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
     glfwMakeContextCurrent(window);
 
-    if (glewInit() != GLEW_OK) { //Glew initialization
+    //Glew initialization
+    if (glewInit() != GLEW_OK) {
         fprintf(stderr, "Nie mo¿na zainicjowaæ GLEW.\n");
         exit(EXIT_FAILURE);
     }
 
-    IMGUI_CHECKVERSION();    //ImGui initialization
+    //ImGui initialization
+    IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
+    //Enum Screen
     Screen screen = Single_Multi_Choose;
 
-    do //main loop
+    //main loop
+    do
     {
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);  //Set background color
+        //Set background color
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        ImGui_ImplOpenGL3_NewFrame();   //ImGui updating new frame
+        //ImGui updating new frame
+        ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
@@ -92,10 +102,12 @@ int main()
             ImGui::End();
         }
 
-        ImGui::Render();    //Rendering ImGui
+        //Rendering ImGui
+        ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        glfwSwapBuffers(window);   //GLFW swap buffers and poll events
+        //GLFW swap buffers and poll events
+        glfwSwapBuffers(window);
         glfwPollEvents();
     } while (!glfwWindowShouldClose(window));
 }
