@@ -361,3 +361,11 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+#folders
+glew/
+glfw/
+imgui/
+
+#imgui file
+imgui.ini
