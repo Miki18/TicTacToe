@@ -26,7 +26,8 @@
 enum Screen { 
     Single_Multi_Choose,
     Single_Menu,
-    IP_Insert
+    IP_Insert,
+    Game
 };
 
 int main()
@@ -74,30 +75,126 @@ int main()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        ImGuiStyle& style = ImGui::GetStyle();
+
+        //The first screen - player can choose between singleplayer and multiplayer game
         if (screen == Single_Multi_Choose)
         {
             //TicTacToe LOGO
             texture = loadTexture("TicTacToe.bmp");
-            ImGui::SetNextWindowPos(ImVec2(740, 110), NULL);             //window position
+            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
             ImGui::SetNextWindowSize(ImVec2(408,180), NULL);
-            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);   //create ImGui window for example
-            ImGuiStyle& style = ImGui::GetStyle();                      // ImGui background color (white)
-            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
+            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);        //window borders have the same color as background so they will be invisible
             ImGui::Image((void*)(intptr_t)texture, ImVec2(400,150));
             ImGui::End();
 
             //Single Player Button
+            ImGui::SetNextWindowPos(ImVec2(740, 280), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::Begin("Singleplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Singleplayer", ImVec2(400, 150)))
+            {
+                screen = Single_Menu;
+            }
 
             //Multi Player Button
+            ImGui::SetNextWindowPos(ImVec2(740, 500), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::Begin("Multiplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Multiplayer", ImVec2(400, 150)))
+            {
+                screen = IP_Insert;
+            }
 
             //Exit Button
-            ImGui::SetNextWindowPos(ImVec2(740, 820), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 150), NULL);
-            ImGui::Begin("Exit", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar);
+            ImGui::SetNextWindowPos(ImVec2(740, 700), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::Begin("Exit", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
             style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
             if (ImGui::Button("Exit", ImVec2(400, 150)))
             {
                 exit(0);
+            }
+            ImGui::End();
+        }
+
+        //player chooses easy or hard opponent
+        if (screen == Single_Menu)
+        {
+            //TicTacToe LOGO
+            texture = loadTexture("TicTacToe.bmp");
+            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
+            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
+            ImGui::End();
+
+            //easy opponent
+            ImGui::SetNextWindowPos(ImVec2(740, 280), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::Begin("EasyOpponent", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Easy Opponent", ImVec2(400, 150)))
+            {
+                //screen = Single_Menu;
+            }
+
+            //hard opponent
+            ImGui::SetNextWindowPos(ImVec2(740, 500), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::Begin("HardOpponent", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Hard Opponent", ImVec2(400, 150)))
+            {
+                //screen = Single_Menu;
+            }
+
+            //back
+            ImGui::SetNextWindowPos(ImVec2(740, 700), NULL);
+            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            if (ImGui::Button("Back", ImVec2(400, 150)))
+            {
+                screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
+        //if player chooses multiplayer game we need him to insert an IP adres
+        if (screen == IP_Insert)
+        {
+            //TicTacToe LOGO
+            texture = loadTexture("TicTacToe.bmp");
+            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
+            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
+            ImGui::End();
+
+            //insert IP
+            ImGui::SetNextWindowPos(ImVec2(740, 400), NULL);
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+
+            //back
+            ImGui::SetNextWindowPos(ImVec2(740, 740), NULL);
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            if (ImGui::Button("Back", ImVec2(400, 150)))
+            {
+                screen = Single_Multi_Choose;
             }
             ImGui::End();
         }
