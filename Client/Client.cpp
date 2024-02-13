@@ -23,12 +23,31 @@
 
 //enum - client has can be in different menus like main menu or multiplayer game menu.
 // The enum help us to control where the client is at this time and what should see right now.
-enum Screen { 
+enum Screen {
     Single_Multi_Choose,
     Single_Menu,
     IP_Insert,
-    Game
+    Game,
+    Won,
+    Lost
 };
+
+//table for game controlling; ? - empty place; X - x in that place; O - o in that place
+char GameBoardStatus[3][3] = { {'?','?','?'} ,{'?', '?', '?'},{'?', '?', '?'} };
+
+void GameThread(char Opponent_level)
+{
+    std::cout << "udalo sie" << std::endl;
+    if (Opponent_level == 'm')
+    {
+        //multiplayer game
+    }
+    else    //single player fragment
+    {
+        std::cout << "udalo sie" << std::endl;
+        //single player
+    }
+}
 
 int main()
 {
@@ -124,7 +143,7 @@ int main()
         }
 
         //player chooses easy or hard opponent
-        if (screen == Single_Menu)
+        else if (screen == Single_Menu)
         {
             //TicTacToe LOGO
             texture = loadTexture("TicTacToe.bmp");
@@ -143,7 +162,10 @@ int main()
             ImGui::SetWindowFontScale(3.0f);
             if (ImGui::Button("Easy Opponent", ImVec2(400, 150)))
             {
-                //screen = Single_Menu;
+                screen = Game;
+                std::thread Game(GameThread, 'e');      //Here we starts thread for single player game and join.
+                Game.join();
+                //e means easy opponent, h means hard opponent, m means multiplayer game
             }
 
             //hard opponent
@@ -153,7 +175,10 @@ int main()
             ImGui::SetWindowFontScale(3.0f);
             if (ImGui::Button("Hard Opponent", ImVec2(400, 150)))
             {
-                //screen = Single_Menu;
+                screen = Game;
+                std::thread Game(GameThread, 'h');      //Here we starts thread for single player game and join.
+                Game.join();
+                //e means easy opponent, h means hard opponent, m means multiplayer game
             }
 
             //back
@@ -164,13 +189,13 @@ int main()
             style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
             if (ImGui::Button("Back", ImVec2(400, 150)))
             {
-                screen = Single_Multi_Choose;
+                screen = Game;
             }
             ImGui::End();
         }
 
         //if player chooses multiplayer game we need him to insert an IP adres
-        if (screen == IP_Insert)
+        else if (screen == IP_Insert)
         {
             //TicTacToe LOGO
             texture = loadTexture("TicTacToe.bmp");
@@ -199,9 +224,28 @@ int main()
             ImGui::End();
         }
 
+        //if player plays he should see a board
+        else if (screen == Game)
+        {
+            //TicTacToe LOGO
+            texture = loadTexture("TicTacToe.bmp");
+            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
+            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
+            ImGui::End();
+        }
+
         //Rendering ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        if (screen == Game)
+        {
+            //odpal w¹tek z gr¹
+        }
 
         //GLFW swap buffers and poll events
         glfwSwapBuffers(window);
