@@ -37,14 +37,12 @@ char GameBoardStatus[3][3] = { {'?','?','?'} ,{'?', '?', '?'},{'?', '?', '?'} };
 
 void GameThread(char Opponent_level)
 {
-    std::cout << "udalo sie" << std::endl;
     if (Opponent_level == 'm')
     {
         //multiplayer game
     }
     else    //single player fragment
     {
-        std::cout << "udalo sie" << std::endl;
         //single player
     }
 }
