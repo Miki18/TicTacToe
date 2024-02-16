@@ -5,12 +5,14 @@ void ImGuiFrame()
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-
-    ImGuiStyle& style = ImGui::GetStyle();
 }
 
 void Single_Multi_Choose()
 {
+    ImGuiStyle& style = ImGui::GetStyle();
+    enum Screen;
+    extern Screen screen;
+
     ImGuiFrame();
     
     //TicTacToe LOGO
@@ -30,7 +32,7 @@ void Single_Multi_Choose()
     ImGui::SetWindowFontScale(3.0f);
     if (ImGui::Button("Singleplayer", ImVec2(400, 150)))
     {
-        screen = Single_Menu;
+        //screen = Single_Menu;
     }
 
     //Multi Player Button
@@ -40,7 +42,7 @@ void Single_Multi_Choose()
     ImGui::SetWindowFontScale(3.0f);
     if (ImGui::Button("Multiplayer", ImVec2(400, 150)))
     {
-        screen = IP_Insert;
+        //screen = IP_Insert;
     }
 
     //Exit Button
