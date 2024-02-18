@@ -1,4 +1,4 @@
-#define WIN32_LEAN_AND_MEAN   //EXAMPLE CODE TO CHECK IF LIBRARIES WORK (client)
+#define WIN32_LEAN_AND_MEAN
 
 #include <math.h>
 #include <GL/glew.h>
@@ -21,6 +21,8 @@
 #include <condition_variable>
 #include <random>
 #include "LoadTexture.h"
+#include "Screens.h"
+#include "GameMechanics.h"
 
 std::mutex wait_for_player;
 std::condition_variable cv;
@@ -32,58 +34,18 @@ enum Screen {
     Single_Menu,
     IP_Insert,
     GameScreen,
-    Won,
-    Lost,
-    Draw
+    Result
 };
-
-Screen screen = Single_Multi_Choose;
 
 //table for game controlling; ? - empty place; X - x in that place; O - o in that place
 char GameBoardStatus[3][3] = { {'?','?','?'} 
                               ,{'?','?','?'}
                               ,{'?','?','?'} };
 
-int BoardCheck()    //return 0 means no winner, 1 - X wins, 2 - O wins
-{
-    for (int i = 0; i < 3; i++)
-    {
-        if (GameBoardStatus[i][0] == 'X' and GameBoardStatus[i][1] == 'X' and GameBoardStatus[i][2] == 'X')  //check rows
-        {
-            return 1;
-        }
-
-        if (GameBoardStatus[i][0] == 'O' and GameBoardStatus[i][1] == 'O' and GameBoardStatus[i][2] == 'O')
-        {
-            return 2;
-        }
-
-        if (GameBoardStatus[0][i] == 'X' and GameBoardStatus[1][i] == 'X' and GameBoardStatus[2][i] == 'X')  //check colums
-        {
-            return 1;
-        }
-
-        if (GameBoardStatus[0][i] == 'O' and GameBoardStatus[1][i] == 'O' and GameBoardStatus[2][i] == 'O')
-        {
-            return 2;
-        }
-    }
-    if ((GameBoardStatus[0][0] == 'X' and GameBoardStatus[1][1] == 'X' and GameBoardStatus[1][2] == 'X') or (GameBoardStatus[0][2] == 'X' and GameBoardStatus[1][1] == 'X' and GameBoardStatus[2][0] == 'X'))  //check diagonal
-    {
-        return 1;
-    }
-    else if ((GameBoardStatus[0][0] == 'O' and GameBoardStatus[1][1] == 'O' and GameBoardStatus[1][2] == 'O') or (GameBoardStatus[0][2] == 'O' and GameBoardStatus[1][1] == 'O' and GameBoardStatus[2][0] == 'O'))
-    {
-        return 2;
-    }
-    else
-    {
-        return 0;   //there is no winner
-    }
-}
-
-void GameThread(char Opponent_level, char& Mark)
+void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& ResultValue)
 {   
+    char YourMark;   //we need to know what is player's mark to identify if he win or lose later
+    ResultValue = "Draw";
     bool YourTurn = 0;
     if (Opponent_level == 'm')
     {
@@ -94,14 +56,16 @@ void GameThread(char Opponent_level, char& Mark)
         srand(time(NULL));    //in single player game we use random to detect if you go first or second. If 0 u go second if 1 u go first
         if (rand() % 2 == 0)
         {
+            YourMark = 'O';   //If your move is not first then you have 'O', because O also is a second one
             YourTurn = 0;
         }
         else
         {
+            YourMark = 'X';  //If your move is first then you have 'X', because X goes first
             YourTurn = 1;
         }
 
-        for(int x = 0; x<8; x++)   //we do it 9 times, because we have 9 places to fill
+        for(int x = 0; x<9; x++)   //we do it 9 times, because we have 9 places to fill
         {
             if (YourTurn == 1)
             {
@@ -122,17 +86,16 @@ void GameThread(char Opponent_level, char& Mark)
             }
             else     //opponent move
             {
-                //if hard check if u can win or block
-                do
+                int aiStatus = 0;      //for AI controlling
+                if (Opponent_level == 'h') //if opponent AI is set on 'hard' level then it checks if it has to block or can istant win. If not he does the same as easy AI
                 {
-                    int i = rand() % 3;
-                    int a = rand() % 3;
-                    if (GameBoardStatus[i][a] == '?')
-                    {
-                        GameBoardStatus[i][a] = Mark;
-                        break;
-                    }
-                } while (true);
+                    aiStatus = HardAiAlgorithm(Mark);   //hard AI algorithm - we give it 'Mark', because it must know if it has X or O
+                }
+
+                if (aiStatus == 0) //randomly place marks (this is what easy AI do or hard AI when it doesn't block or istant win)
+                {
+                    AiRandomMove(Mark);
+                }
 
                 if (Mark == 'X')   //change to opposite
                 {
@@ -148,25 +111,46 @@ void GameThread(char Opponent_level, char& Mark)
             
             int result = BoardCheck(); //we check if anyone win
 
-            if (result == 1 or result == 2)
+            if (result == 1 or result == 2)  //if someone win we break the loop
             {
-                for (int i = 0; i < 3; i++)
+                if (result == 1)    //check what exactly the function BoardCheck returns. If X wins then check if X was player's mark. If yes player wins if not player loses
                 {
-                    for (int a = 0; a < 3; a++)
+                    if (YourMark == 'X')
                     {
-                        GameBoardStatus[i][a] = '?';
+                        ResultValue = "Win";
+                        break;
+                    }
+                    else
+                    {
+                        ResultValue = "Lose";
+                        break;
                     }
                 }
-                screen = Single_Multi_Choose;
-                break;
+                else
+                {
+                    if (YourMark == 'O')   //the same for O
+                    {
+                        ResultValue = "Win";
+                        break;
+                    }
+                    else
+                    {
+                        ResultValue = "Lose";
+                        break;
+                    }
+                }
             }
         }
     }
+    ResetGameBoard();  // in case of a draw
+    Mark = 'X';      //reset Mark to X, cause X must be first, otherwise we will have problems (line 57 Client.cpp)
+    screen = Result;
 }
 
 int main()
 {
-    char Mark = 'X';
+    std::string ResultValue;   //here we will have results
+    char Mark = 'X';   //Mark is used to check the symbol (X or O) - X goes first
     GLFWwindow* window{};   //GLFW window
 
     //GLFW initialization
@@ -196,7 +180,7 @@ int main()
     ImGui_ImplOpenGL3_Init("#version 330");
 
     //Enum Screen
-    //Screen screen = Single_Multi_Choose;  - goes to the global variable
+    Screen screen = Single_Multi_Choose;
 
     //main loop
     do
@@ -216,14 +200,7 @@ int main()
         if (screen == Single_Multi_Choose)
         {
             //TicTacToe LOGO
-            texture = loadTexture("TicTacToe.bmp");
-            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
-            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
-            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
-            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);        //window borders have the same color as background so they will be invisible
-            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
-            ImGui::End();
+            ShowLogo();
 
             //Single Player Button
             ImGui::SetNextWindowPos(ImVec2(740, 280), NULL);
@@ -262,14 +239,7 @@ int main()
         else if (screen == Single_Menu)
         {
             //TicTacToe LOGO
-            texture = loadTexture("TicTacToe.bmp");
-            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
-            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
-            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
-            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
-            ImGui::End();
+            ShowLogo();
 
             //easy opponent
             ImGui::SetNextWindowPos(ImVec2(740, 280), NULL);
@@ -279,7 +249,7 @@ int main()
             if (ImGui::Button("Easy Opponent", ImVec2(400, 150)))
             {
                 screen = GameScreen;
-                std::thread(GameThread, 'e', std::ref(Mark)).detach();      //Here we starts thread for single player game and detach.
+                std::thread(GameThread, 'e', std::ref(Mark), std::ref(screen), std::ref(ResultValue)).detach();      //Here we starts thread for single player game and detach.
                 //e means easy opponent, h means hard opponent, m means multiplayer game
             }
 
@@ -291,7 +261,7 @@ int main()
             if (ImGui::Button("Hard Opponent", ImVec2(400, 150)))
             {
                 screen = GameScreen;
-                std::thread(GameThread, 'h', std::ref(Mark)).detach();      //Here we starts thread for single player game and join.
+                std::thread(GameThread, 'h', std::ref(Mark), std::ref(screen), std::ref(ResultValue)).detach();      //Here we starts thread for single player game and join.
                 //e means easy opponent, h means hard opponent, m means multiplayer game
             }
 
@@ -312,14 +282,7 @@ int main()
         else if (screen == IP_Insert)
         {
             //TicTacToe LOGO
-            texture = loadTexture("TicTacToe.bmp");
-            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
-            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
-            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
-            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
-            ImGui::End();
+            ShowLogo();
 
             //insert IP
             ImGui::SetNextWindowPos(ImVec2(740, 400), NULL);
@@ -342,14 +305,7 @@ int main()
         else if (screen == GameScreen)
         {
             //TicTacToe LOGO
-            texture = loadTexture("TicTacToe.bmp");
-            ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
-            ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
-            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
-            style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-            ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
-            ImGui::End();
+            ShowLogo();
 
             texture = loadTexture("Board.bmp");
             ImGui::SetNextWindowPos(ImVec2(610, 300), NULL);
@@ -369,7 +325,7 @@ int main()
                         ImGui::SetNextWindowPos(ImVec2(620 + (i * 250), 320 + (a * 250)), NULL);
                         ImGui::SetNextWindowSize(ImVec2(200, 200), NULL);
                         ImGui::Begin(std::to_string(ID).c_str(), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-                        if (ImGui::Button("Button", ImVec2(200, 200)))
+                        if (ImGui::Button("Button", ImVec2(200, 200)))   //that button allow player to place Mark at empty place
                         {
                             if (Mark == 'X')
                             {
@@ -406,6 +362,32 @@ int main()
             }
         }
 
+        else if (screen == Result)
+        {
+            ShowLogo();
+
+            //Info about results
+            ImGui::SetNextWindowPos(ImVec2(740, 400), NULL);
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2) - 50);
+            ImGui::Text(ResultValue.c_str());
+            ImGui::End();
+
+            //back
+            ImGui::SetNextWindowPos(ImVec2(740, 740), NULL);
+            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            if (ImGui::Button("Back", ImVec2(400, 150)))
+            {
+                screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
         //Rendering ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -413,5 +395,6 @@ int main()
         //GLFW swap buffers and poll events
         glfwSwapBuffers(window);
         glfwPollEvents();
+
     } while (!glfwWindowShouldClose(window));
 }
