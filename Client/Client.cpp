@@ -1,4 +1,4 @@
-#define WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN       //this is necessary
 
 #include <math.h>
 #include <GL/glew.h>
@@ -20,12 +20,14 @@
 #include <mutex>
 #include <condition_variable>
 #include <random>
-#include "LoadTexture.h"
 #include "Screens.h"
 #include "GameMechanics.h"
 
 std::mutex wait_for_player;
 std::condition_variable cv;
+
+std::mutex IsPlayersTurn;
+std::condition_variable PT;
 
 //enum - client has can be in different menus like main menu or multiplayer game menu.
 // The enum help us to control where the client is at this time and what should see right now.
@@ -42,11 +44,28 @@ char GameBoardStatus[3][3] = { {'?','?','?'}
                               ,{'?','?','?'}
                               ,{'?','?','?'} };
 
-void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& ResultValue)
+void TimeControl(int& TimeLimit, bool& YourTurn)   //time control controlling timer that player need to do the move. In single player this is optional, but in multiplayer it is necessary
+{
+    TimeLimit = 15;  //Time limit is 15 seconds
+    for (TimeLimit; TimeLimit > 0; TimeLimit--)
+    {
+        if (YourTurn == false)    //timer will pause when player's turn ends
+        {
+            std::unique_lock<std::mutex> lock(IsPlayersTurn);
+            PT.wait(lock);
+        }
+
+        Sleep(1000);       //wait for 1 second
+        std::cout << TimeLimit << std::endl;
+    }
+    //here delete player's game
+}
+
+void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& ResultValue, int& TimeLimit, bool& YourTurn)
 {   
     char YourMark;   //we need to know what is player's mark to identify if he win or lose later
     ResultValue = "Draw";
-    bool YourTurn = 0;
+    YourTurn = 0;
     if (Opponent_level == 'm')
     {
         //multiplayer game
@@ -69,6 +88,7 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
         {
             if (YourTurn == 1)
             {
+                PT.notify_one();   //start timer
                 //wait here for player
                 std::unique_lock<std::mutex> lck(wait_for_player);
                 cv.wait(lck);
@@ -83,9 +103,12 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
                 }
 
                 YourTurn = 0;    //enemy move
+
+                TimeLimit = 15; //after player move we restart TimeLimit
             }
             else     //opponent move
             {
+                Sleep(5000);
                 int aiStatus = 0;      //for AI controlling
                 if (Opponent_level == 'h') //if opponent AI is set on 'hard' level then it checks if it has to block or can istant win. If not he does the same as easy AI
                 {
@@ -142,15 +165,24 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
             }
         }
     }
-    ResetGameBoard();  // in case of a draw
+    //delete timer
+    Sleep(500);  //wait for half second, so player can see the final board
+    ResetGameBoard();
     Mark = 'X';      //reset Mark to X, cause X must be first, otherwise we will have problems (line 57 Client.cpp)
+    YourTurn = 0; //reset YourTurn variable
     screen = Result;
 }
 
 int main()
 {
+    //Variable for threads
+    int TimeLimit = 15; //Time limit is 15 seconds
     std::string ResultValue;   //here we will have results
     char Mark = 'X';   //Mark is used to check the symbol (X or O) - X goes first
+    bool YourTurn = 0;    //Tell us if it's player's turn or not
+
+    bool HasTimeControl = false;
+
     GLFWwindow* window{};   //GLFW window
 
     //GLFW initialization
@@ -223,11 +255,7 @@ int main()
             }
 
             //Exit Button
-            ImGui::SetNextWindowPos(ImVec2(740, 700), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
-            ImGui::Begin("Exit", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            SetBackButton();        //exit button has the same settings as back button & every back button has the same settings
             if (ImGui::Button("Exit", ImVec2(400, 150)))
             {
                 exit(0);
@@ -249,7 +277,12 @@ int main()
             if (ImGui::Button("Easy Opponent", ImVec2(400, 150)))
             {
                 screen = GameScreen;
-                std::thread(GameThread, 'e', std::ref(Mark), std::ref(screen), std::ref(ResultValue)).detach();      //Here we starts thread for single player game and detach.
+                //Here we starts thread for single player game and detach.
+                std::thread(GameThread, 'e', std::ref(Mark), std::ref(screen), std::ref(ResultValue), std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                if (HasTimeControl == true)                //if player didn't disable time control then we have to start extra thread for it
+                {
+                    std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                }
                 //e means easy opponent, h means hard opponent, m means multiplayer game
             }
 
@@ -261,16 +294,40 @@ int main()
             if (ImGui::Button("Hard Opponent", ImVec2(400, 150)))
             {
                 screen = GameScreen;
-                std::thread(GameThread, 'h', std::ref(Mark), std::ref(screen), std::ref(ResultValue)).detach();      //Here we starts thread for single player game and join.
+                //Here we starts thread for single player game and join.
+                std::thread(GameThread, 'h', std::ref(Mark), std::ref(screen), std::ref(ResultValue), std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                if (HasTimeControl == true)             //if player didn't disable time control then we have to start extra thread for it
+                {
+                    std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                }
                 //e means easy opponent, h means hard opponent, m means multiplayer game
             }
 
-            //back
-            ImGui::SetNextWindowPos(ImVec2(740, 700), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
-            ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            //Enable/disable timer button
+            ImGui::SetNextWindowPos(ImVec2(1200, 280), NULL);
+            ImGui::SetNextWindowSize(ImVec2(300, 150), NULL);
+            ImGui::Begin("Time control", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            ImGui::Text("Time control:");
+            if (HasTimeControl == false)
+            {
+                ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2 - 25);
+                if (ImGui::Button("Disabled", ImVec2(300,100)))
+                {
+                    HasTimeControl = true;
+                }
+            }
+            if (HasTimeControl == true)
+            {
+                ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2 - 25);
+                if (ImGui::Button("Enabled", ImVec2(300, 100)))
+                {
+                    HasTimeControl = false;
+                }
+            }
+
+            //back
+            SetBackButton();
             if (ImGui::Button("Back", ImVec2(400, 150)))
             {
                 screen = Single_Multi_Choose;
@@ -289,10 +346,7 @@ int main()
             ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
 
             //back
-            ImGui::SetNextWindowPos(ImVec2(740, 740), NULL);
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
-            ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
+            SetBackButton();
             style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
             if (ImGui::Button("Back", ImVec2(400, 150)))
             {
@@ -310,7 +364,7 @@ int main()
             texture = loadTexture("Board.bmp");
             ImGui::SetNextWindowPos(ImVec2(610, 300), NULL);
             ImGui::SetNextWindowSize(ImVec2(700, 700), NULL);
-            ImGui::Begin("Board", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::Begin("Board", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus);
             ImGui::Image((void*)(intptr_t)texture, ImVec2(700, 700));
             ImGui::End();
 
@@ -322,23 +376,26 @@ int main()
                     int ID = 3 * i + a;   //calculating ID value
                     if (GameBoardStatus[a][i] == '?')  //if the field is empty than we don't load any texture, but only put a button there
                     {
-                        ImGui::SetNextWindowPos(ImVec2(620 + (i * 250), 320 + (a * 250)), NULL);
-                        ImGui::SetNextWindowSize(ImVec2(200, 200), NULL);
-                        ImGui::Begin(std::to_string(ID).c_str(), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-                        if (ImGui::Button("Button", ImVec2(200, 200)))   //that button allow player to place Mark at empty place
+                        if (YourTurn)   //you are allowed to move only when it's your turn
                         {
-                            if (Mark == 'X')
+                            ImGui::SetNextWindowPos(ImVec2(620 + (i * 250), 320 + (a * 250)), NULL);
+                            ImGui::SetNextWindowSize(ImVec2(200, 200), NULL);
+                            ImGui::Begin(std::to_string(ID).c_str(), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+                            if (ImGui::InvisibleButton("Button", ImVec2(200, 200)))   //that button allow player to place Mark at empty place
                             {
-                                GameBoardStatus[a][i] = 'X';
-                            }
-                            else
-                            {
-                                GameBoardStatus[a][i] = 'O';
-                            }
+                                if (Mark == 'X')
+                                {
+                                    GameBoardStatus[a][i] = 'X';
+                                }
+                                else
+                                {
+                                    GameBoardStatus[a][i] = 'O';
+                                }
 
-                            cv.notify_one();
+                                cv.notify_one();
+                            }
+                            ImGui::End();
                         }
-                        ImGui::End();
                     }
                     else
                     {
@@ -351,7 +408,7 @@ int main()
                             texture = loadTexture("o.bmp");
                         }
                         
-                        //In ImGui every window have to have different name (this is like their ID). With that (3*i+a) windows will have names like 1, 2, 3 etc
+                        //In ImGui every window must have different name (this is like their ID). With that (3*i+a) windows will have names like 1, 2, 3 etc
                         ImGui::SetNextWindowPos(ImVec2(620 + (i * 250), 320 + (a * 250)), NULL);
                         ImGui::SetNextWindowSize(ImVec2(200, 200), NULL);
                         ImGui::Begin(std::to_string(ID).c_str(), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
@@ -376,11 +433,7 @@ int main()
             ImGui::End();
 
             //back
-            ImGui::SetNextWindowPos(ImVec2(740, 740), NULL);
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
-            ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+            SetBackButton();
             if (ImGui::Button("Back", ImVec2(400, 150)))
             {
                 screen = Single_Multi_Choose;

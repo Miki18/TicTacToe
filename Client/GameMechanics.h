@@ -123,7 +123,7 @@ int HardAiAlgorithm(char Mark)   //returns 0 or 1. 1 means that AI did something
     
     if (GameBoardStatus[1][1] == Mark and GameBoardStatus[2][2] == Mark)
     {
-        if (GameBoardStatus[0][0] = '?')
+        if (GameBoardStatus[0][0] == '?')
         {
             GameBoardStatus[0][0] = Mark;
             return 1;
