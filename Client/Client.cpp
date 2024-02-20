@@ -44,21 +44,32 @@ char GameBoardStatus[3][3] = { {'?','?','?'}
                               ,{'?','?','?'}
                               ,{'?','?','?'} };
 
-void TimeControl(int& TimeLimit, bool& YourTurn)   //time control controlling timer that player need to do the move. In single player this is optional, but in multiplayer it is necessary
+void TimeControl(int& TimeLimit, bool& YourTurn, Screen& screen)   //time control controlling timer that player need to do the move. In single player this is optional, but in multiplayer it is necessary
 {
     TimeLimit = 15;  //Time limit is 15 seconds
     for (TimeLimit; TimeLimit > 0; TimeLimit--)
     {
-        if (YourTurn == false)    //timer will pause when player's turn ends
+        if (screen != GameScreen)   //if game ends we end this thread, otherwise we focus on timer
         {
-            std::unique_lock<std::mutex> lock(IsPlayersTurn);
-            PT.wait(lock);
+            return;
         }
-
-        Sleep(1000);       //wait for 1 second
-        std::cout << TimeLimit << std::endl;
+        else
+        {
+            if (YourTurn == false)    //timer will pause when player's turn ends
+            {
+                std::unique_lock<std::mutex> lock(IsPlayersTurn);
+                PT.wait(lock);
+            }
+            else             //when it's player's turn
+            {
+                Sleep(1000);       //wait for 1 second
+                std::cout << TimeLimit << std::endl;
+            }
+        }
     }
-    //here delete player's game
+
+    YourTurn = 0;    //time for your move ends
+    cv.notify_one();
 }
 
 void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& ResultValue, int& TimeLimit, bool& YourTurn)
@@ -104,11 +115,18 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
 
                 YourTurn = 0;    //enemy move
 
-                TimeLimit = 15; //after player move we restart TimeLimit
+                if (TimeLimit == 0)    //if time ends you lose and the game is ended
+                {
+                    ResultValue = "Lose";
+                    break;
+                }
+                else
+                {
+                    TimeLimit = 15; //after player move we restart TimeLimit
+                }
             }
             else     //opponent move
             {
-                Sleep(5000);
                 int aiStatus = 0;      //for AI controlling
                 if (Opponent_level == 'h') //if opponent AI is set on 'hard' level then it checks if it has to block or can istant win. If not he does the same as easy AI
                 {
@@ -138,7 +156,7 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
             {
                 if (result == 1)    //check what exactly the function BoardCheck returns. If X wins then check if X was player's mark. If yes player wins if not player loses
                 {
-                    if (YourMark == 'X')
+                    if (YourMark == 'X')      //result tell us if X wins or O   ResultValue tell us if player wins or not.
                     {
                         ResultValue = "Win";
                         break;
@@ -165,12 +183,12 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
             }
         }
     }
-    //delete timer
     Sleep(500);  //wait for half second, so player can see the final board
     ResetGameBoard();
     Mark = 'X';      //reset Mark to X, cause X must be first, otherwise we will have problems (line 57 Client.cpp)
     YourTurn = 0; //reset YourTurn variable
     screen = Result;
+    PT.notify_one();   //The Time Control thread can be locked, so we have to unlock it 
 }
 
 int main()
@@ -281,7 +299,7 @@ int main()
                 std::thread(GameThread, 'e', std::ref(Mark), std::ref(screen), std::ref(ResultValue), std::ref(TimeLimit), std::ref(YourTurn)).detach();
                 if (HasTimeControl == true)                //if player didn't disable time control then we have to start extra thread for it
                 {
-                    std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                    std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn), std::ref(screen)).detach();
                 }
                 //e means easy opponent, h means hard opponent, m means multiplayer game
             }
@@ -298,7 +316,7 @@ int main()
                 std::thread(GameThread, 'h', std::ref(Mark), std::ref(screen), std::ref(ResultValue), std::ref(TimeLimit), std::ref(YourTurn)).detach();
                 if (HasTimeControl == true)             //if player didn't disable time control then we have to start extra thread for it
                 {
-                    std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                    std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn), std::ref(screen)).detach();
                 }
                 //e means easy opponent, h means hard opponent, m means multiplayer game
             }
