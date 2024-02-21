@@ -39,23 +39,25 @@ GLuint loadTexture(const char* filename) {
 void ShowLogo()
 {
     ImGuiStyle& style = ImGui::GetStyle();
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
     texture = loadTexture("TicTacToe.bmp");
-    ImGui::SetNextWindowPos(ImVec2(740, 60), NULL);             //window position
-    ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+    ImGui::SetNextWindowSize(ImVec2(mode->width/4.5, mode->height/6), NULL);                //We need to base on sceen width and height, because computers have different screen resolution
+    ImGui::SetNextWindowPos(ImVec2(mode->width*7.6/20, mode->height*1/24), NULL);             //window position
     ImGui::Begin("TicTacToe", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);   //create ImGui window for example                     
     style.Colors[ImGuiCol_WindowBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);       // ImGui background color (white)
     style.Colors[ImGuiCol_Border] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);        //window borders have the same color as background so they will be invisible
-    ImGui::Image((void*)(intptr_t)texture, ImVec2(400, 150));
+    ImGui::Image((void*)(intptr_t)texture, ImVec2(mode->width / 5, mode->height / 6.5));
     ImGui::End();
 }
 
 void SetBackButton()
 {
     ImGuiStyle& style = ImGui::GetStyle();
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
-    ImGui::SetNextWindowPos(ImVec2(740, 740), NULL);
-    ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+    ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+    ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 19 / 24), NULL);
     ImGui::Begin("Back", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
     ImGui::SetWindowFontScale(3.0f);
     style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);

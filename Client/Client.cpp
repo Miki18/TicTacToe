@@ -63,7 +63,6 @@ void TimeControl(int& TimeLimit, bool& YourTurn, Screen& screen)   //time contro
             else             //when it's player's turn
             {
                 Sleep(1000);       //wait for 1 second
-                std::cout << TimeLimit << std::endl;
             }
         }
     }
@@ -113,7 +112,7 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
                     Mark = 'X';
                 }
 
-                YourTurn = 0;    //enemy move
+                YourTurn = 0;        //enemy's turn
 
                 if (TimeLimit == 0)    //if time ends you lose and the game is ended
                 {
@@ -147,13 +146,15 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
                     Mark = 'X';
                 }
 
-                YourTurn = 1;    //your move
+                YourTurn = 1;       //player's turn
             }
             
             int result = BoardCheck(); //we check if anyone win
 
             if (result == 1 or result == 2)  //if someone win we break the loop
             {
+                YourTurn = 2;        //here we block 2 players, because the game ends, because someone wins
+
                 if (result == 1)    //check what exactly the function BoardCheck returns. If X wins then check if X was player's mark. If yes player wins if not player loses
                 {
                     if (YourMark == 'X')      //result tell us if X wins or O   ResultValue tell us if player wins or not.
@@ -210,9 +211,9 @@ int main()
     }
 
     //create window (size and title)
-    window = glfwCreateWindow(1920, 1080, "TicTacToe", NULL, NULL);
-    glfwSetWindowSizeLimits(window, 1920, 1080, 1920, 1080);
-    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    window = glfwCreateWindow(1920, 1080, "TicTacToe", glfwGetPrimaryMonitor(), NULL);
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());  //it tell us screen width and height
+    glfwSetWindowSizeLimits(window, mode->width, mode->height, mode->width, mode->height);      //window's size is the same as screen size
     glfwMakeContextCurrent(window);
 
     //Glew initialization
@@ -253,28 +254,31 @@ int main()
             ShowLogo();
 
             //Single Player Button
-            ImGui::SetNextWindowPos(ImVec2(740, 280), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height*7/24), NULL);
             ImGui::Begin("Singleplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            if (ImGui::Button("Singleplayer", ImVec2(400, 150)))
+            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            if (ImGui::Button("Singleplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = Single_Menu;
             }
 
             //Multi Player Button
-            ImGui::SetNextWindowPos(ImVec2(740, 500), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
             ImGui::Begin("Multiplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            if (ImGui::Button("Multiplayer", ImVec2(400, 150)))
+            if (ImGui::Button("Multiplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = IP_Insert;
             }
 
             //Exit Button
             SetBackButton();        //exit button has the same settings as back button & every back button has the same settings
-            if (ImGui::Button("Exit", ImVec2(400, 150)))
+            if (ImGui::Button("Exit", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 exit(0);
             }
@@ -288,11 +292,11 @@ int main()
             ShowLogo();
 
             //easy opponent
-            ImGui::SetNextWindowPos(ImVec2(740, 280), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
             ImGui::Begin("EasyOpponent", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            if (ImGui::Button("Easy Opponent", ImVec2(400, 150)))
+            if (ImGui::Button("Easy Opponent", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = GameScreen;
                 //Here we starts thread for single player game and detach.
@@ -305,11 +309,11 @@ int main()
             }
 
             //hard opponent
-            ImGui::SetNextWindowPos(ImVec2(740, 500), NULL);
-            ImGui::SetNextWindowSize(ImVec2(400, 180), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
             ImGui::Begin("HardOpponent", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            if (ImGui::Button("Hard Opponent", ImVec2(400, 150)))
+            if (ImGui::Button("Hard Opponent", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = GameScreen;
                 //Here we starts thread for single player game and join.
@@ -322,15 +326,15 @@ int main()
             }
 
             //Enable/disable timer button
-            ImGui::SetNextWindowPos(ImVec2(1200, 280), NULL);
-            ImGui::SetNextWindowSize(ImVec2(300, 150), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 6, mode->height / 7), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width*3.7/6, mode->height * 7 / 24), NULL);
             ImGui::Begin("Time control", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
             ImGui::Text("Time control:");
             if (HasTimeControl == false)
             {
                 ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2 - 25);
-                if (ImGui::Button("Disabled", ImVec2(300,100)))
+                if (ImGui::Button("Disabled", ImVec2(mode->width*0.14,mode->height*0.1)))
                 {
                     HasTimeControl = true;
                 }
@@ -338,7 +342,7 @@ int main()
             if (HasTimeControl == true)
             {
                 ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2 - 25);
-                if (ImGui::Button("Enabled", ImVec2(300, 100)))
+                if (ImGui::Button("Enabled", ImVec2(mode->width * 0.14, mode->height * 0.1)))
                 {
                     HasTimeControl = false;
                 }
@@ -346,7 +350,7 @@ int main()
 
             //back
             SetBackButton();
-            if (ImGui::Button("Back", ImVec2(400, 150)))
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = Single_Multi_Choose;
             }
@@ -360,13 +364,13 @@ int main()
             ShowLogo();
 
             //insert IP
-            ImGui::SetNextWindowPos(ImVec2(740, 400), NULL);
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
 
             //back
             SetBackButton();
             style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-            if (ImGui::Button("Back", ImVec2(400, 150)))
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = Single_Multi_Choose;
             }
@@ -380,11 +384,22 @@ int main()
             ShowLogo();
 
             texture = loadTexture("Board.bmp");
-            ImGui::SetNextWindowPos(ImVec2(610, 300), NULL);
-            ImGui::SetNextWindowSize(ImVec2(700, 700), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width*0.31, mode->height*0.27), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width*0.36, mode->height*0.64), NULL);
             ImGui::Begin("Board", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus);
-            ImGui::Image((void*)(intptr_t)texture, ImVec2(700, 700));
+            ImGui::Image((void*)(intptr_t)texture, ImVec2(mode->width * 0.36, mode->height * 0.64));
             ImGui::End();
+
+            if (HasTimeControl == true)
+            {
+                std::string TimeLeft = "Time: " + std::to_string(TimeLimit);
+                ImGui::SetNextWindowSize(ImVec2(mode->width / 6, mode->height / 7), NULL);
+                ImGui::SetNextWindowPos(ImVec2(mode->width*6.5/10, mode->height * 1 / 24));
+                ImGui::Begin("Time", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+                ImGui::SetWindowFontScale(3.0f);
+                ImGui::Text(TimeLeft.c_str());
+                ImGui::End();
+            }
 
             //we need to fill all 9 field
             for(int i = 0; i < 3; i++)
@@ -396,10 +411,10 @@ int main()
                     {
                         if (YourTurn)   //you are allowed to move only when it's your turn
                         {
-                            ImGui::SetNextWindowPos(ImVec2(620 + (i * 250), 320 + (a * 250)), NULL);
-                            ImGui::SetNextWindowSize(ImVec2(200, 200), NULL);
+                            ImGui::SetNextWindowPos(ImVec2(mode->width * 0.32 + (i * mode->width * 0.12), mode->height * 0.285 + (a * mode->height * 0.215)), NULL);
+                            ImGui::SetNextWindowSize(ImVec2(mode->width * 0.11, mode->height * 0.19), NULL);
                             ImGui::Begin(std::to_string(ID).c_str(), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-                            if (ImGui::InvisibleButton("Button", ImVec2(200, 200)))   //that button allow player to place Mark at empty place
+                            if (ImGui::InvisibleButton("Button", ImVec2(mode->width * 0.1, mode->height * 0.18)))   //that button allow player to place Mark at empty place
                             {
                                 if (Mark == 'X')
                                 {
@@ -426,11 +441,11 @@ int main()
                             texture = loadTexture("o.bmp");
                         }
                         
-                        //In ImGui every window must have different name (this is like their ID). With that (3*i+a) windows will have names like 1, 2, 3 etc
-                        ImGui::SetNextWindowPos(ImVec2(620 + (i * 250), 320 + (a * 250)), NULL);
-                        ImGui::SetNextWindowSize(ImVec2(200, 200), NULL);
+                        //In ImGui every window must have different name (this is like their ID). With that (3*i+a) windows will have names like 1, 2, 3 etc . It also allow us to allocate them
+                        ImGui::SetNextWindowPos(ImVec2(mode->width * 0.32 + (i * mode->width * 0.12), mode->height * 0.285 + (a * mode->height * 0.215)), NULL);
+                        ImGui::SetNextWindowSize(ImVec2(mode->width * 0.11, mode->height * 0.19), NULL);
                         ImGui::Begin(std::to_string(ID).c_str(), nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-                        ImGui::Image((void*)(intptr_t)texture, ImVec2(170, 170));
+                        ImGui::Image((void*)(intptr_t)texture, ImVec2(mode->width * 0.1, mode->height * 0.18));
                         ImGui::End();
                     }
                 }
@@ -442,17 +457,18 @@ int main()
             ShowLogo();
 
             //Info about results
-            ImGui::SetNextWindowPos(ImVec2(740, 400), NULL);
-            ImGui::SetNextWindowSize(ImVec2(408, 180), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
             ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            ImGui::SetCursorPosX((ImGui::GetWindowWidth() / 2) - 50);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 4/10);
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
             ImGui::Text(ResultValue.c_str());
             ImGui::End();
 
             //back
             SetBackButton();
-            if (ImGui::Button("Back", ImVec2(400, 150)))
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = Single_Multi_Choose;
             }
