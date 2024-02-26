@@ -22,12 +22,21 @@
 #include <random>
 #include "Screens.h"
 #include "GameMechanics.h"
+#include "Network.h"
 
 std::mutex wait_for_player;
 std::condition_variable cv;
 
 std::mutex IsPlayersTurn;
 std::condition_variable PT;
+
+std::mutex WaitForServer;
+std::condition_variable WFS;    //mutex for waiting for server
+
+//Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib (for multiplayer game)
+#pragma comment (lib, "Ws2_32.lib")
+#pragma comment (lib, "Mswsock.lib")
+#pragma comment (lib, "AdvApi32.lib")
 
 //enum - client has can be in different menus like main menu or multiplayer game menu.
 // The enum help us to control where the client is at this time and what should see right now.
@@ -36,7 +45,12 @@ enum Screen {
     Single_Menu,
     IP_Insert,
     GameScreen,
-    Result
+    Result,
+    Connect,
+    Connect_not,
+    LoginOrCreateNewAccount,
+    Login,
+    CreateNewAccount
 };
 
 //table for game controlling; ? - empty place; X - x in that place; O - o in that place
@@ -201,6 +215,7 @@ int main()
     bool YourTurn = 0;    //Tell us if it's player's turn or not
 
     bool HasTimeControl = false;
+    char IP[16];     //for IP
 
     GLFWwindow* window{};   //GLFW window
 
@@ -258,7 +273,7 @@ int main()
             ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height*7/24), NULL);
             ImGui::Begin("Singleplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);          //set button color
             style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
             style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
             if (ImGui::Button("Singleplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
@@ -366,6 +381,14 @@ int main()
             //insert IP
             ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
             ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("Insert_window", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::Text("Insert IP:");
+            if (ImGui::InputText("", IP, sizeof(IP), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                screen = Connect;
+            }
+            ImGui::End();
 
             //back
             SetBackButton();
@@ -471,6 +494,129 @@ int main()
             if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
                 screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == Connect_not)
+        {
+            ShowLogo();
+
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 2, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 3 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 3 / 10);
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
+            ImGui::Text("Unable to connect to server!");
+            ImGui::End();
+
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == Connect)
+        {
+            ShowLogo();
+
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 2.5 / 10);
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
+            ImGui::Text("Connecting...");
+            ImGui::End();
+            
+            int ConnectionResult = ConnectToServer(std::string(IP));
+
+            std::cout << "Connect to server" << std::endl;
+
+            if (ConnectionResult == 1)    //if not able to connect show that information to user
+            {
+                screen = Connect_not;
+            }
+
+            else if (ConnectionResult == 0)  //if we connect to server go to multiplayer main menu
+            {
+                std::cout << "Here we go" << std::endl;
+
+                std::thread(ServerMessages).detach();   //we start messages with server
+
+                std::cout << "Thread started" << std::endl;
+
+                std::unique_lock<std::mutex> lck(WaitForServer);
+                WFS.wait(lck);                   //wait for server
+
+                std::cout << "lock goes off" << std::endl;
+
+                screen = LoginOrCreateNewAccount;
+            }
+        }
+
+        else if (screen == LoginOrCreateNewAccount)
+        {
+            ShowLogo();
+
+            //Login
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
+            ImGui::Begin("Login", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);          //set button color
+            style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            if (ImGui::Button("Login", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = Login;
+            }
+
+            //Create new account
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
+            ImGui::Begin("Register", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Register", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = CreateNewAccount;
+            }
+
+            //Exit Button
+            SetBackButton();
+            if (ImGui::Button("Disconnect", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                //Disconect code
+                screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == Login)
+        {
+            ShowLogo();
+
+            //Exit Button
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = LoginOrCreateNewAccount;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == CreateNewAccount)
+        {
+            ShowLogo();
+
+            //Exit Button
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = LoginOrCreateNewAccount;
             }
             ImGui::End();
         }
