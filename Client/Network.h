@@ -2,10 +2,12 @@
 
 //network data
 WSADATA wsaData;
-SOCKET ConnectSocket = INVALID_SOCKET;
+SOCKET ServerSocket = INVALID_SOCKET;
 struct addrinfo* result = NULL, * ptr = NULL, hints;
 int iResult;
 char recvbuf[256];
+char sendbuf[256];
+char lastrecv[256];
 #define DEFAULT_PORT "27015"
 //////
 
@@ -38,19 +40,19 @@ int ConnectToServer(std::string IP)   //return 1 if not able to connect     retu
     for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
 
         // Create a SOCKET for connecting to server
-        ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
+        ServerSocket = socket(ptr->ai_family, ptr->ai_socktype,
             ptr->ai_protocol);
-        if (ConnectSocket == INVALID_SOCKET) {
+        if (ServerSocket == INVALID_SOCKET) {
             //printf("socket failed with error: %ld\n", WSAGetLastError());
             WSACleanup();
             return 1;
         }
 
         // Connect to server.
-        iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
+        iResult = connect(ServerSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
         if (iResult == SOCKET_ERROR) {
-            closesocket(ConnectSocket);
-            ConnectSocket = INVALID_SOCKET;
+            closesocket(ServerSocket);
+            ServerSocket = INVALID_SOCKET;
             continue;
         }
         break;
@@ -58,7 +60,7 @@ int ConnectToServer(std::string IP)   //return 1 if not able to connect     retu
 
     freeaddrinfo(result);
 
-    if (ConnectSocket == INVALID_SOCKET) {
+    if (ServerSocket == INVALID_SOCKET) {
         //printf("Unable to connect to server!\n");
         WSACleanup();
         return 1;
@@ -67,17 +69,58 @@ int ConnectToServer(std::string IP)   //return 1 if not able to connect     retu
     return 0;   // no error = successful connection
 }
 
-void ServerMessages()
+void Disconnect()
 {
-    memset(recvbuf, ' ', sizeof(recvbuf));   //we clear the memory (or to be excact - we set all memory in recvbuf to spacebar)
+    sendbuf[0] = '\n';        //we send that specyfic mark so server will know that we disconnect
+    send(ServerSocket, sendbuf, 256, NULL);
+    shutdown(ServerSocket, closesocket(ServerSocket));     //we shut down the socket to unlock every blocked socket function (such as receive)
+}
+
+void ServerMessages(bool& ConnectStatus)      //here we will receive messages from server
+{
     do
     {
-        recv(ConnectSocket, recvbuf, 256, NULL);
+        memset(recvbuf, NULL, sizeof(recvbuf));   //we clear the memory
+
+        recv(ServerSocket, recvbuf, 256, NULL);    //we receive
+
+        if (ConnectStatus == false)      //When the connect status is false (we are not online) we break the loop
+        {
+            break;
+        }
+
+        if (std::string(recvbuf) == "Login" or std::string(recvbuf) == "Error" or std::string(recvbuf) == "Register")      //that if is connected with login and register
+        {
+            WFS.notify_one();
+            strcpy_s(lastrecv, recvbuf);    //we copy the message from server, so other functions can read them, and we don't have to worry about that memset in 83 line
+        }
 
         if (recvbuf[0] == '0')
         {
-            WFS.notify_one();
+            WFS.notify_one();     //we notify the main client that we got message from server
         }
 
     } while (true);
+}
+
+bool LoginOrRegister(char Option, std::string NickAndPassword)
+{
+    NickAndPassword = Option + std::string(" ") + NickAndPassword;   //we add the info so we have: [L or C](spacebar)nick(spacebar)password
+
+    send(ServerSocket, NickAndPassword.c_str(), NickAndPassword.length(), NULL);    //we send message to the server
+
+    std::unique_lock<std::mutex> lck(WaitForServer);                                  //and we wait for answer
+    WFS.wait(lck);
+
+    //we read last receive message from server
+    if (std::string(lastrecv) == "Login" or std::string(lastrecv) == "Register")    //if login or register operation is success we return true, otherwise we return false
+    {
+        memset(lastrecv, NULL, sizeof(lastrecv));    //when we use the lastrecv we clean. We don't have to worry that we clean the next message from server,
+        return true;                                // because server sends messages only when we ask him about something (there's no race condition) - at least in that moment
+    }
+    else if (std::string(lastrecv) == "Error")
+    {
+        memset(lastrecv, NULL, sizeof(lastrecv));
+        return false;
+    }
 }

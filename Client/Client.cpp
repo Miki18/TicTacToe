@@ -50,7 +50,9 @@ enum Screen {
     Connect_not,
     LoginOrCreateNewAccount,
     Login,
-    CreateNewAccount
+    CreateNewAccount,
+    LoginRegiserFailed,
+    MultiplayerMenu
 };
 
 //table for game controlling; ? - empty place; X - x in that place; O - o in that place
@@ -216,6 +218,8 @@ int main()
 
     bool HasTimeControl = false;
     char IP[16];     //for IP
+    bool IsConnected = false;   //we need to know if we are connected right now or not.
+    bool FlowControl = false;    //some code we need to do only once in infinite loop, so we need that variable
 
     GLFWwindow* window{};   //GLFW window
 
@@ -534,8 +538,6 @@ int main()
             
             int ConnectionResult = ConnectToServer(std::string(IP));
 
-            std::cout << "Connect to server" << std::endl;
-
             if (ConnectionResult == 1)    //if not able to connect show that information to user
             {
                 screen = Connect_not;
@@ -543,16 +545,12 @@ int main()
 
             else if (ConnectionResult == 0)  //if we connect to server go to multiplayer main menu
             {
-                std::cout << "Here we go" << std::endl;
+                IsConnected = true;
 
-                std::thread(ServerMessages).detach();   //we start messages with server
-
-                std::cout << "Thread started" << std::endl;
+                std::thread(ServerMessages, std::ref(IsConnected)).detach();   //we start messages with server
 
                 std::unique_lock<std::mutex> lck(WaitForServer);
                 WFS.wait(lck);                   //wait for server
-
-                std::cout << "lock goes off" << std::endl;
 
                 screen = LoginOrCreateNewAccount;
             }
@@ -589,7 +587,8 @@ int main()
             SetBackButton();
             if (ImGui::Button("Disconnect", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
-                //Disconect code
+                Disconnect();
+                IsConnected = false;
                 screen = Single_Multi_Choose;
             }
             ImGui::End();
@@ -597,7 +596,264 @@ int main()
 
         else if (screen == Login)
         {
+            bool fill[2];    //we use "fill" variable to check which data user provides. Fill is when datas are correct
+            bool error[2];  //we use error[2] to show user which data are incorrect
+            char nick[30];       //char nick and password are for data
+            char password[30];
+
+            if (FlowControl == false)    //we do this only once
+            {
+                memset(fill, NULL, 2);
+                memset(error, false, sizeof(error));
+                memset(nick, NULL, sizeof(nick));
+                memset(password, NULL, sizeof(password));
+
+                FlowControl = true;
+            }
+
             ShowLogo();
+
+            //write nick
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
+            ImGui::Begin("Insert_nick", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[0] == true)    //we show user where error is
+            {
+                ImGui::Text("Maximum 20");
+            }
+            ImGui::Text("Nick:");
+            if (ImGui::InputText("", nick, sizeof(nick), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                if (std::string(nick).length() < 20)  //check if nick is longer than 20.
+                {
+                    fill[0] = true;     //user filled nick properly
+                    error[0] = false;    //we don't have error now
+
+                    if (fill[0] == true and fill[1] == true)   //if we fill both we sent nick and password to the server
+                    {
+                        std::string send = std::string(nick) + ' ' + std::string(password);
+                        bool LoginOrRegisterResult = LoginOrRegister('L', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+
+                        if (LoginOrRegisterResult == true)
+                        {
+                            FlowControl = false;
+                            screen = MultiplayerMenu;
+                        }
+                        else
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = LoginRegiserFailed;
+                        }
+                    }
+                }
+                else
+                {
+                    error[0] = true;   //if nick is longer than 20 we can't accept it and we have to tell user to insert another nick
+                }
+            }
+            ImGui::End();
+
+            //password
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
+            ImGui::Begin("Insert_password", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[1] == true)    //we show user where error is
+            {
+                ImGui::Text("Maximum 20");
+            }
+            ImGui::Text("Password:");
+            if (ImGui::InputText("", password, sizeof(password), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                if (std::string(password).length() < 20)  //check if nick is longer than 20.
+                {
+                    fill[1] = true;     //user filled nick properly
+                    error[1] = false;    //we don't have error now
+
+                    if (fill[0] == true and fill[1] == true)   //if we fill both we sent nick and password to the server
+                    {
+                        std::string send = std::string(nick) + ' ' + std::string(password);
+                        bool LoginOrRegisterResult = LoginOrRegister('L', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+
+                        if (LoginOrRegisterResult == true)
+                        {
+                            FlowControl = false;
+                            screen = MultiplayerMenu;
+                        }
+                        else
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = LoginRegiserFailed;
+                        }
+                    }
+                }
+                else
+                {
+                    error[1] = true;   //if nick is longer than 20 we can't accept it and we have to tell user to insert another nick
+                }
+            }
+            ImGui::End();
+
+            //Exit Button
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                FlowControl = false;         //we do this one time everytime we enter sceen == login, so if we leave this we have to change FlowControl
+                screen = LoginOrCreateNewAccount;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == CreateNewAccount)
+        {
+            bool fill[3];    //we use "fill" variable to check which data user provides
+            bool error[3];
+            char nick[30];       //char nick and password are for data
+            char password[30];
+            char reppassword[30];   //repeat password - user has to provide the password 2 times
+
+            if (FlowControl == false)    //we do this only once
+            {
+                memset(error, false, 3);
+                memset(nick, NULL, sizeof(nick));
+                memset(password, NULL, sizeof(password));
+                memset(reppassword, NULL, sizeof(password));
+
+                FlowControl = true;
+            }
+
+            ShowLogo();
+
+            //write nick
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 5 / 24), NULL);
+            ImGui::Begin("Insert_nick", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[0] == true)
+            {
+                ImGui::Text("Maximum 20");
+            }
+            ImGui::Text("Nick:");
+            if (ImGui::InputText("", nick, sizeof(nick), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                if (std::string(nick).length() < 20)
+                {
+                    fill[0] = true;
+                    error[0] = false;
+
+                    if (fill[0] == true and fill[1] == true and fill[2] == true)
+                    {
+                        std::string send = std::string(nick) + ' ' + std::string(password);
+                        bool LoginOrRegisterResult = LoginOrRegister('R', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+
+                        if (LoginOrRegisterResult == true)
+                        {
+                            FlowControl = false;
+                            screen = MultiplayerMenu;
+                        }
+                        else
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = LoginRegiserFailed;
+                        }
+                    }
+                }
+                else
+                {
+                    error[0] = true;
+                }
+            }
+            ImGui::End();
+
+            //password
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("Insert_password", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[1] == true)
+            {
+                ImGui::Text("Wrong password");
+            }
+            ImGui::Text("Password:");
+            if (ImGui::InputText("", password, sizeof(password), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                if (std::string(password).length() < 20)
+                {
+                    if (strcmp(password, reppassword) == 0 and std::string(password).length() > 0)     //we check if both passwords are the same and if they are not null
+                    {
+                        fill[2] = true;        //if 2 passwords are the same and first password is correct, it means the second one also must be correct
+                        fill[1] = true;
+                        error[1] = false;
+
+                        if (fill[0] == true and fill[1] == true and fill[2] == true)
+                        {
+                            std::string send = std::string(nick) + ' ' + std::string(password);
+                            bool LoginOrRegisterResult = LoginOrRegister('R', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+
+                            if (LoginOrRegisterResult == true)
+                            {
+                                FlowControl = false;
+                                screen = MultiplayerMenu;
+                            }
+                            else
+                            {
+                                FlowControl = false;     //we reset nick and password
+                                screen = LoginRegiserFailed;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    error[1] = true;
+                }
+            }
+            ImGui::End();
+
+            //repeat password
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
+            ImGui::Begin("Insert_repeat_password", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[2] == true)
+            {
+                ImGui::Text("Wrong password");
+            }
+            ImGui::Text("Repeat Password:");
+            if (ImGui::InputText("", reppassword, sizeof(reppassword), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                if (std::string(reppassword).length() < 20)
+                {
+                    if (strcmp(password, reppassword) == 0 and std::string(reppassword).length() > 0)     //we check if both password are the same and if they are not null
+                    {
+                        fill[1] = true;        //if 2 passwords are the same and second password is correct, it means the first one also must be correct
+                        fill[2] = true;
+                        error[2] = false;
+
+                        if (fill[0] == true and fill[1] == true and fill[2] == true)
+                        {
+                            std::string send = std::string(nick) + ' ' + std::string(password);
+                            bool LoginOrRegisterResult = LoginOrRegister('R', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+                            if (LoginOrRegisterResult == true)
+                            {
+                                FlowControl = false;
+                                screen = MultiplayerMenu;
+                            }
+                            else
+                            {
+                                FlowControl = false;     //we reset nick and password
+                                screen = LoginRegiserFailed;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    error[2] = true;
+                }
+            }
+            ImGui::End();
 
             //Exit Button
             SetBackButton();
@@ -608,15 +864,39 @@ int main()
             ImGui::End();
         }
 
-        else if (screen == CreateNewAccount)
+        else if (screen == LoginRegiserFailed)
+        {
+            ShowLogo();
+
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 2, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 3 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("LoginOrRegisterFailed", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 3 / 10);
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
+            ImGui::Text("Login or register failed!");
+            ImGui::Text("Try change your nick or check password!");
+            ImGui::End();
+
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = LoginOrCreateNewAccount;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == MultiplayerMenu)
         {
             ShowLogo();
 
             //Exit Button
             SetBackButton();
-            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            if (ImGui::Button("Disconnect", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
-                screen = LoginOrCreateNewAccount;
+                Disconnect();
+                IsConnected = false;
+                screen = Single_Multi_Choose;
             }
             ImGui::End();
         }

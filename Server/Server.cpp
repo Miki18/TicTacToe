@@ -28,7 +28,7 @@
 #define DEFAULT_PORT "27015"
 #define DEFAULT_BUFLEN 256
 
-class Gracze
+struct Players
 {
 	public:
 		int line_in_file;  //we save line in file for easier access
@@ -38,16 +38,78 @@ class Gracze
 		int lose_number;
 };
 
-void ClientThread(SOCKET ClientSocket)
+void ClientThread(SOCKET ClientSocket, std::vector<Players> PlayersData)
 {
     char sendbuf[256];
-    memset(sendbuf, ' ', sizeof(sendbuf));    //we clear the memory
+    char recvbuf[256];
+    memset(sendbuf, NULL, sizeof(sendbuf));    //we clear the memory
+    memset(recvbuf, NULL, sizeof(recvbuf));
+    int Index = -1;
     
     sendbuf[0] = '0';  //we send to client message that everything is ready and client thread is created
 
-    int returned;
+    send(ClientSocket, sendbuf, 256, NULL);
 
-    returned = send(ClientSocket, sendbuf, 256, NULL);
+    do    //we create infinite loop. Server wait for command from client. When it get this, it does some stuff (send answer if necessary) and wait again for another command
+    {
+        recv(ClientSocket, recvbuf, 256, NULL);
+
+        if (recvbuf[0] == 'L')   //if client try to login
+        {
+            std::string nick = std::string(recvbuf).substr(2,std::string(recvbuf).find(" ", 2) - 2);     //we take nick
+            std::string password = std::string(recvbuf).substr(nick.length() + 3);    //we take password
+            
+            for (int i = 0; i < PlayersData.size(); i++)        //we check PlayersData to check if that player exist
+            {
+                if (PlayersData[i].nick == nick and PlayersData[i].password == password)    //if we find him, we copy the index and send message that the player exist
+                {
+                    Index = i;
+                    send(ClientSocket, "Login", sizeof("Login"), NULL);
+                    break;
+                }
+            }
+
+            if (Index == -1)    //if we didn't find player (and index is still NULL) we send info about failure
+            {
+                send(ClientSocket, "Error", sizeof("Error"), NULL);
+            }
+
+            memset(recvbuf, NULL, sizeof(recvbuf));      //we clean the memory
+        }
+
+        if (recvbuf[0] == 'R')        //if client try to create a new account
+        {
+            std::string nick = std::string(recvbuf).substr(2, std::string(recvbuf).find(" ", 2) - 2);     //we take nick
+            std::string password = std::string(recvbuf).substr(nick.length() + 3);    //we take password
+
+            bool NickUnique = true;          //we need to check if nick is unique
+            for (int i = 0; i < PlayersData.size(); i++)
+            {
+                if (strcmp(PlayersData[i].nick.c_str(), nick.c_str()) == 0)    //if nick is not unique
+                {
+                    NickUnique = false;
+                    break;            //In case, we find the same nick as we got from client, we don't have to check others 
+                }
+            }
+
+            if (!NickUnique)
+            {
+                send(ClientSocket, "Error", sizeof("Error"), NULL);    //we send error message (2 players can't have the same nick)
+            }
+            else
+            {
+                send(ClientSocket, "Register", sizeof("Register"), NULL);
+                Index = PlayersData.size();
+                PlayersData.push_back({Index, nick, password, 0, 0});    //we will identify player with index
+            }
+        }
+
+        if (recvbuf[0] == '\n')    //when client click "disconnect", he sends \n mark, so we need to end the loop
+        {
+            break;  //we break loop
+        }
+
+    } while (true);
 }
 
 int main()
@@ -57,6 +119,7 @@ int main()
 
 	//First, server read data from file
 	int line_number = 0;
+    std::vector<Players> PlayersData;    //vector for players
 	std::string line;
 	while (!data.eof())    //data schema is: nick(string)[spacebar]password(string)[spacebar]win_number(integer)[spacebar]lose_number(integer)[end line]
 	{
@@ -66,37 +129,41 @@ int main()
 		}
 
 		int line_position = 0;
+        std::string nick;
 		while (line[line_position] != char(32))   //read nick - we read till we got spacebar
 		{
-			std::cout << line[line_position];
+            nick += line[line_position];
 			line_position++;                     //we move one positon forward
 		}
 
 		line_position++;                //we move to the next position (we don't want to read space)
-
+        std::string password;
 		while (line[line_position] != char(32))  //read password - we read till we got spacebar
 		{
-			std::cout << line[line_position];
+            password += line[line_position];
 			line_position++;
 		}
 
 		line_position++;
 
+        std::string number;
 		while (line[line_position] != char(32))    //read number of wins - we read till we got spacebar
 		{
-			std::cout << line[line_position];
+            number += line[line_position];
 			line_position++;
 		}
+        int win_number = stoi(number);
 
 		line_position++;
-
+        number.clear();
 		while (line_position <= line.length())    //read number of losses - because this is the last data in out line, we read till we reach the end of line
 		{
-			std::cout << line[line_position];
+            number += line[line_position];
 			line_position++;
 		}
-		std::cout << "" << std::endl;
+        int lose_number = stoi(number);
 
+        PlayersData.push_back({line_number, nick, password, win_number, lose_number});   //push_back to the struct
         line_number++;                        //we increase the line number
 	}
 
@@ -173,7 +240,7 @@ int main()
             continue;       //if something unexpected happened, we will not create client thread
         }
 
-        ClientThread(ClientSocket);
+        ClientThread(ClientSocket, PlayersData);
 
     } while (true);
 }
