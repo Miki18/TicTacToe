@@ -38,23 +38,6 @@ std::condition_variable WFS;    //mutex for waiting for server
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
-//enum - client has can be in different menus like main menu or multiplayer game menu.
-// The enum help us to control where the client is at this time and what should see right now.
-enum Screen {
-    Single_Multi_Choose,
-    Single_Menu,
-    IP_Insert,
-    GameScreen,
-    Result,
-    Connect,
-    Connect_not,
-    LoginOrCreateNewAccount,
-    Login,
-    CreateNewAccount,
-    LoginRegiserFailed,
-    MultiplayerMenu
-};
-
 //table for game controlling; ? - empty place; X - x in that place; O - o in that place
 char GameBoardStatus[3][3] = { {'?','?','?'} 
                               ,{'?','?','?'}
@@ -269,44 +252,15 @@ int main()
         //The first screen - player can choose between singleplayer and multiplayer game
         if (screen == Single_Multi_Choose)
         {
-            //TicTacToe LOGO
-            ShowLogo();
-
-            //Single Player Button
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height*7/24), NULL);
-            ImGui::Begin("Singleplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);          //set button color
-            style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
-            style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
-            if (ImGui::Button("Singleplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                screen = Single_Menu;
-            }
-
-            //Multi Player Button
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
-            ImGui::Begin("Multiplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            if (ImGui::Button("Multiplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                screen = IP_Insert;
-            }
-
-            //Exit Button
-            SetBackButton();        //exit button has the same settings as back button & every back button has the same settings
-            if (ImGui::Button("Exit", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                exit(0);
-            }
-            ImGui::End();
+            SingleMultiChoose(screen);
         }
 
         //player chooses easy or hard opponent
         else if (screen == Single_Menu)
         {
+            ImGuiStyle& style = ImGui::GetStyle();
+            const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());  //it tell us screen width and height
+
             //TicTacToe LOGO
             ShowLogo();
 
@@ -346,14 +300,14 @@ int main()
 
             //Enable/disable timer button
             ImGui::SetNextWindowSize(ImVec2(mode->width / 6, mode->height / 7), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width*3.7/6, mode->height * 7 / 24), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 3.7 / 6, mode->height * 7 / 24), NULL);
             ImGui::Begin("Time control", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
             ImGui::Text("Time control:");
             if (HasTimeControl == false)
             {
                 ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2 - 25);
-                if (ImGui::Button("Disabled", ImVec2(mode->width*0.14,mode->height*0.1)))
+                if (ImGui::Button("Disabled", ImVec2(mode->width * 0.14, mode->height * 0.1)))
                 {
                     HasTimeControl = true;
                 }
@@ -379,29 +333,7 @@ int main()
         //if player chooses multiplayer game we need him to insert an IP adres
         else if (screen == IP_Insert)
         {
-            //TicTacToe LOGO
-            ShowLogo();
-
-            //insert IP
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
-            ImGui::Begin("Insert_window", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            ImGui::Text("Insert IP:");
-            if (ImGui::InputText("", IP, sizeof(IP), ImGuiInputTextFlags_EnterReturnsTrue))
-            {
-                screen = Connect;
-            }
-            ImGui::End();
-
-            //back
-            SetBackButton();
-            style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
-            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                screen = Single_Multi_Choose;
-            }
-            ImGui::End();
+            IPinsert(screen, IP);
         }
 
         //if player plays he should see a board
@@ -481,46 +413,12 @@ int main()
 
         else if (screen == Result)
         {
-            ShowLogo();
-
-            //Info about results
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
-            ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 4/10);
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
-            ImGui::Text(ResultValue.c_str());
-            ImGui::End();
-
-            //back
-            SetBackButton();
-            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                screen = Single_Multi_Choose;
-            }
-            ImGui::End();
+            ResultScreen(screen, ResultValue);
         }
 
         else if (screen == Connect_not)
         {
-            ShowLogo();
-
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 2, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 3 / 20, mode->height * 9 / 24), NULL);
-            ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 3 / 10);
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
-            ImGui::Text("Unable to connect to server!");
-            ImGui::End();
-
-            SetBackButton();
-            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                screen = Single_Multi_Choose;
-            }
-            ImGui::End();
+            ConnectNot(screen);
         }
 
         else if (screen == Connect)
@@ -587,8 +485,7 @@ int main()
             SetBackButton();
             if (ImGui::Button("Disconnect", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
-                Disconnect();
-                IsConnected = false;
+                Disconnect(IsConnected);
                 screen = Single_Multi_Choose;
             }
             ImGui::End();
@@ -633,17 +530,22 @@ int main()
                     if (fill[0] == true and fill[1] == true)   //if we fill both we sent nick and password to the server
                     {
                         std::string send = std::string(nick) + ' ' + std::string(password);
-                        bool LoginOrRegisterResult = LoginOrRegister('L', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+                        int LoginOrRegisterResult = LoginOrRegister('L', send, IsConnected);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
 
-                        if (LoginOrRegisterResult == true)
+                        if (LoginOrRegisterResult == 0)
                         {
                             FlowControl = false;
                             screen = MultiplayerMenu;
                         }
-                        else
+                        else if(LoginOrRegisterResult == 1)
                         {
                             FlowControl = false;     //we reset nick and password
                             screen = LoginRegiserFailed;
+                        }
+                        else if (LoginOrRegisterResult == 2)
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = Connect_not;
                         }
                     }
                 }
@@ -674,17 +576,22 @@ int main()
                     if (fill[0] == true and fill[1] == true)   //if we fill both we sent nick and password to the server
                     {
                         std::string send = std::string(nick) + ' ' + std::string(password);
-                        bool LoginOrRegisterResult = LoginOrRegister('L', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+                        int LoginOrRegisterResult = LoginOrRegister('L', send, IsConnected);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
 
-                        if (LoginOrRegisterResult == true)
+                        if (LoginOrRegisterResult == 0)
                         {
                             FlowControl = false;
                             screen = MultiplayerMenu;
                         }
-                        else
+                        else if (LoginOrRegisterResult == 1)
                         {
                             FlowControl = false;     //we reset nick and password
                             screen = LoginRegiserFailed;
+                        }
+                        else if (LoginOrRegisterResult == 2)
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = Connect_not;
                         }
                     }
                 }
@@ -745,17 +652,22 @@ int main()
                     if (fill[0] == true and fill[1] == true and fill[2] == true)
                     {
                         std::string send = std::string(nick) + ' ' + std::string(password);
-                        bool LoginOrRegisterResult = LoginOrRegister('R', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+                        int LoginOrRegisterResult = LoginOrRegister('R', send, IsConnected);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
 
-                        if (LoginOrRegisterResult == true)
+                        if (LoginOrRegisterResult == 0)
                         {
                             FlowControl = false;
                             screen = MultiplayerMenu;
                         }
-                        else
+                        else if (LoginOrRegisterResult == 1)
                         {
                             FlowControl = false;     //we reset nick and password
                             screen = LoginRegiserFailed;
+                        }
+                        else if (LoginOrRegisterResult == 2)
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = Connect_not;
                         }
                     }
                 }
@@ -778,29 +690,31 @@ int main()
             ImGui::Text("Password:");
             if (ImGui::InputText("", password, sizeof(password), ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                if (std::string(password).length() < 20)
+                if (std::string(password).length() < 20 and strcmp(password, reppassword) == 0 and std::string(password).length() > 0) //we check if both passwords are the same and if they are not null or longer than 20
                 {
-                    if (strcmp(password, reppassword) == 0 and std::string(password).length() > 0)     //we check if both passwords are the same and if they are not null
+                    fill[2] = true;        //if 2 passwords are the same and first password is correct, it means the second one also must be correct
+                    fill[1] = true;
+                    error[1] = false;
+                
+                    if (fill[0] == true and fill[1] == true and fill[2] == true)
                     {
-                        fill[2] = true;        //if 2 passwords are the same and first password is correct, it means the second one also must be correct
-                        fill[1] = true;
-                        error[1] = false;
+                        std::string send = std::string(nick) + ' ' + std::string(password);
+                        int LoginOrRegisterResult = LoginOrRegister('R', send, IsConnected);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
 
-                        if (fill[0] == true and fill[1] == true and fill[2] == true)
+                        if (LoginOrRegisterResult == 0)
                         {
-                            std::string send = std::string(nick) + ' ' + std::string(password);
-                            bool LoginOrRegisterResult = LoginOrRegister('R', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
-
-                            if (LoginOrRegisterResult == true)
-                            {
-                                FlowControl = false;
-                                screen = MultiplayerMenu;
-                            }
-                            else
-                            {
-                                FlowControl = false;     //we reset nick and password
-                                screen = LoginRegiserFailed;
-                            }
+                            FlowControl = false;
+                            screen = MultiplayerMenu;
+                        }
+                        else if (LoginOrRegisterResult == 1)
+                        {
+                             FlowControl = false;     //we reset nick and password
+                             screen = LoginRegiserFailed;
+                        }
+                        else if (LoginOrRegisterResult == 2)
+                        {
+                             FlowControl = false;     //we reset nick and password
+                             screen = Connect_not;
                         }
                     }
                 }
@@ -823,28 +737,31 @@ int main()
             ImGui::Text("Repeat Password:");
             if (ImGui::InputText("", reppassword, sizeof(reppassword), ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                if (std::string(reppassword).length() < 20)
+                if (std::string(reppassword).length() < 20 and strcmp(password, reppassword) == 0 and std::string(reppassword).length() > 0) //we check if both password are the same and if they are not null
                 {
-                    if (strcmp(password, reppassword) == 0 and std::string(reppassword).length() > 0)     //we check if both password are the same and if they are not null
-                    {
-                        fill[1] = true;        //if 2 passwords are the same and second password is correct, it means the first one also must be correct
-                        fill[2] = true;
-                        error[2] = false;
+                    fill[1] = true;        //if 2 passwords are the same and second password is correct, it means the first one also must be correct
+                    fill[2] = true;
+                    error[2] = false;
 
-                        if (fill[0] == true and fill[1] == true and fill[2] == true)
+                    if (fill[0] == true and fill[1] == true and fill[2] == true)
+                    {
+                        std::string send = std::string(nick) + ' ' + std::string(password);
+                        int LoginOrRegisterResult = LoginOrRegister('R', send, IsConnected);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
+
+                        if (LoginOrRegisterResult == 0)
                         {
-                            std::string send = std::string(nick) + ' ' + std::string(password);
-                            bool LoginOrRegisterResult = LoginOrRegister('R', send);    //we send to serwer info what we do (L -> we want to login, R -> we want to register) and nick with password
-                            if (LoginOrRegisterResult == true)
-                            {
-                                FlowControl = false;
-                                screen = MultiplayerMenu;
-                            }
-                            else
-                            {
-                                FlowControl = false;     //we reset nick and password
-                                screen = LoginRegiserFailed;
-                            }
+                            FlowControl = false;
+                            screen = MultiplayerMenu;
+                        }
+                        else if (LoginOrRegisterResult == 1)
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = LoginRegiserFailed;
+                        }
+                        else if (LoginOrRegisterResult == 2)
+                        {
+                            FlowControl = false;     //we reset nick and password
+                            screen = Connect_not;
                         }
                     }
                 }
@@ -866,37 +783,204 @@ int main()
 
         else if (screen == LoginRegiserFailed)
         {
-            ShowLogo();
-
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 2, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 3 / 20, mode->height * 9 / 24), NULL);
-            ImGui::Begin("LoginOrRegisterFailed", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
-            ImGui::SetWindowFontScale(3.0f);
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 3 / 10);
-            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
-            ImGui::Text("Login or register failed!");
-            ImGui::Text("Try change your nick or check password!");
-            ImGui::End();
-
-            SetBackButton();
-            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
-            {
-                screen = LoginOrCreateNewAccount;
-            }
-            ImGui::End();
+            LoginRegisterFail(screen);
         }
 
         else if (screen == MultiplayerMenu)
         {
             ShowLogo();
 
+            //Profile
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 11 / 20, mode->height * 7 / 24), NULL);
+            ImGui::Begin("Profile", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);          //set button color
+            style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            if (ImGui::Button("Profile", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = Profile;
+            }
+
+            //DeleteAccount
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 11 / 20, mode->height * 13 / 24), NULL);
+            ImGui::Begin("Delete", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Delete Account", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = DeleteAccount;
+            }
+
+            //Singleplayer game
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 4 / 20, mode->height * 7 / 24), NULL);
+            ImGui::Begin("Singleplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            style.Colors[ImGuiCol_Button] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);          //set button color
+            style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            if (ImGui::Button("Singleplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                //
+            }
+
+            //Multiplayer game
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 4 / 20, mode->height * 13 / 24), NULL);
+            ImGui::Begin("Multiplayer", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Multiplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                //
+            }
+
             //Exit Button
             SetBackButton();
             if (ImGui::Button("Disconnect", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
-                Disconnect();
-                IsConnected = false;
+                Disconnect(IsConnected);
                 screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == DeleteAccount)     //if player want to delete his account we ask him if he is sure about that
+        {
+            ShowLogo();
+
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 3, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 4/ 10);
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
+            ImGui::Text("Are you sure?");
+            ImGui::Text("This action is permanent!");
+            ImGui::End();
+
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 4 / 20, mode->height * 19 / 24), NULL);
+            ImGui::Begin("No", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("No", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = MultiplayerMenu;
+            }
+            ImGui::End();
+
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 11 / 20, mode->height * 19 / 24), NULL);
+            ImGui::Begin("Yes", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (ImGui::Button("Yes", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                DeleteAccounts();
+                Disconnect(IsConnected);
+                screen = Single_Multi_Choose;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == Profile)
+        {
+            ProfileScreen(screen);
+        }
+
+        else if (screen == Stats)
+        {
+            ShowLogo();
+
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                screen = Profile;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == ChangePassword)   //to change password user have to write password 2 times
+        {
+            char password[30];
+            char reppassword[30];
+            bool error[2];
+            bool fill[2];
+
+            if (FlowControl == false)
+            {
+                memset(password, NULL, sizeof(password));
+                memset(reppassword, NULL, sizeof(reppassword));
+                memset(error, false, sizeof(error));
+                memset(fill, false, sizeof(fill));
+
+                FlowControl = true;
+            }
+            
+            ShowLogo();
+
+            
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
+            ImGui::Begin("Insert_nick", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[0] == true)
+            {
+                ImGui::Text("Wrong password");
+            }
+            ImGui::Text("New password:");
+            if (ImGui::InputText("", password, sizeof(password), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                //cases when error should be true
+                if (std::string(password).length() >= 20 or (std::string(password) != std::string(reppassword) and std::string(reppassword).empty() == false) or std::string(password).length() <= 0)
+                {
+                    error[0] = true;
+                }
+                else
+                {
+                    error[0] = false;
+                    fill[0] = true;
+                    if (fill[0] == true and fill[1] == true)
+                    {
+                        std::cout << "send message" << std::endl;
+                    }
+                }
+            }
+            ImGui::End();
+
+            //password
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
+            ImGui::Begin("Insert_password", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            if (error[1] == true)
+            {
+                ImGui::Text("Wrong password");
+            }
+            ImGui::Text("Repeat password:");
+            if (ImGui::InputText("", reppassword, sizeof(reppassword), ImGuiInputTextFlags_EnterReturnsTrue))
+            {
+                //cases when error should be true
+                if (std::string(reppassword).length() >= 20 or (std::string(password) != std::string(reppassword) and std::string(password).empty() == false) or std::string(reppassword).length() <= 0)
+                {
+                    error[1] = true;
+                }
+                else
+                {
+                    error[1] = false;
+                    fill[1] = true;
+                    if (fill[0] == true and fill[1] == true)
+                    {
+                        std::cout << "send message" << std::endl;
+                    }
+                }
+            }
+
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                FlowControl = false;
+                screen = Profile;
             }
             ImGui::End();
         }

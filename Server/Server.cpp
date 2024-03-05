@@ -21,6 +21,7 @@
 #include <fstream>
 #include <mutex>
 #include <condition_variable>
+#include "file.h"
 
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
@@ -28,23 +29,26 @@
 #define DEFAULT_PORT "27015"
 #define DEFAULT_BUFLEN 256
 
-struct Players
+int GetPositionInVector(int Index, std::vector<Players>& PlayersData)
 {
-	public:
-		int line_in_file;  //we save line in file for easier access
-		std::string nick;
-		std::string password;
-		int win_number;
-		int lose_number;
-};
+    for (int i = 0; i < PlayersData.size(); i++)
+    {
+        if (PlayersData[i].Index == Index)
+        {
+            return i;
+        }
+    }
+}
 
-void ClientThread(SOCKET ClientSocket, std::vector<Players> PlayersData)
+void ClientThread(SOCKET ClientSocket, std::vector<Players>& PlayersData)
 {
     char sendbuf[256];
     char recvbuf[256];
     memset(sendbuf, NULL, sizeof(sendbuf));    //we clear the memory
     memset(recvbuf, NULL, sizeof(recvbuf));
-    int Index = -1;
+    int Index = -1;  //Index identify the struct in vector that belongs to out Client (PlayersData[x].Index = Index)
+    int pos = -1;    //pos is position in vector where the struct is (PlayersData[pos] -> our data)
+    bool PlayerRemoveAccount = false;
     
     sendbuf[0] = '0';  //we send to client message that everything is ready and client thread is created
 
@@ -61,9 +65,11 @@ void ClientThread(SOCKET ClientSocket, std::vector<Players> PlayersData)
             
             for (int i = 0; i < PlayersData.size(); i++)        //we check PlayersData to check if that player exist
             {
-                if (PlayersData[i].nick == nick and PlayersData[i].password == password)    //if we find him, we copy the index and send message that the player exist
+                if (PlayersData[i].nick == nick and PlayersData[i].password == password and PlayersData[i].IsLogged == false)    //if we find him, we copy the index and send message that the player exist
                 {
-                    Index = i;
+                    Index = PlayersData[i].Index;
+                    PlayersData[i].IsLogged = true;
+                    pos = i;
                     send(ClientSocket, "Login", sizeof("Login"), NULL);
                     break;
                 }
@@ -99,9 +105,42 @@ void ClientThread(SOCKET ClientSocket, std::vector<Players> PlayersData)
             else
             {
                 send(ClientSocket, "Register", sizeof("Register"), NULL);
-                Index = PlayersData.size();
-                PlayersData.push_back({Index, nick, password, 0, 0});    //we will identify player with index
+                do      //we need to find unique index
+                {
+                    Index++;
+                    bool IndexUnique = true;
+                    for (int i = 0; i < PlayersData.size(); i++)
+                    {
+                        if (PlayersData[i].Index == Index)
+                        {
+                            IndexUnique = false;
+                            break;
+                        }
+                    }
+
+                    if (IndexUnique == true)
+                    {
+                        break;
+                    }
+
+                } while (true);
+                PlayersData.push_back({Index, nick, password, 0, 0, true});    //we will identify player with index
+                pos = GetPositionInVector(Index, PlayersData);   //because checking the whole vector everytime we need a variable from it would be suboptimal we save our structure position in vector to "pos"
+                //everytime when we need our structure we use PlayersData[pos], but we need to make sure first if PlayersData[pos] is our struct, so we check if(PlayerData[pos].Index == Index) - if not we have to find pos again. 
             }
+        }
+
+        if (std::string(recvbuf) == "DELETE")   //if client want to delete his account, we remove it from vector and break the infinite loop (and then in line 110 it overwrite the .txt file)
+        {
+            if (PlayersData[pos].Index != Index)
+            {
+                pos = GetPositionInVector(Index, PlayersData);
+            }
+
+            PlayersData.erase(PlayersData.begin() + pos);
+
+            PlayerRemoveAccount = true;
+            break;
         }
 
         if (recvbuf[0] == '\n')    //when client click "disconnect", he sends \n mark, so we need to end the loop
@@ -110,62 +149,24 @@ void ClientThread(SOCKET ClientSocket, std::vector<Players> PlayersData)
         }
 
     } while (true);
+
+    SaveFile(PlayersData);  //when player disconnect, server saves data and set IsLogged to false
+
+    if (PlayerRemoveAccount == false)   //if player removed his account we don't set IsLogged = false, because it doesn't exist
+    {
+        if (PlayersData[pos].Index != Index)
+        {
+            pos = GetPositionInVector(Index, PlayersData);
+        }
+        PlayersData[pos].IsLogged = false;
+    }
 }
 
 int main()
 {
-	std::fstream data;
-	data.open("Data.txt", std::ios::in | std::ios::out | std::ios::app);   //we open file. If file doesn't exist we create a new file.
-
-	//First, server read data from file
-	int line_number = 0;
     std::vector<Players> PlayersData;    //vector for players
-	std::string line;
-	while (!data.eof())    //data schema is: nick(string)[spacebar]password(string)[spacebar]win_number(integer)[spacebar]lose_number(integer)[end line]
-	{
-		if (std::getline(data, line).fail())     //eof detects the end of file (data ends). But when file is empty (for example we just created the file) eof will not work.
-		{										//That's why we need to check if that first getline was correct (if we aren't trying to read from empty file).
-			break;							   //.fail() return true when something bad happen and then we use break to stop the whole read file procedure
-		}
-
-		int line_position = 0;
-        std::string nick;
-		while (line[line_position] != char(32))   //read nick - we read till we got spacebar
-		{
-            nick += line[line_position];
-			line_position++;                     //we move one positon forward
-		}
-
-		line_position++;                //we move to the next position (we don't want to read space)
-        std::string password;
-		while (line[line_position] != char(32))  //read password - we read till we got spacebar
-		{
-            password += line[line_position];
-			line_position++;
-		}
-
-		line_position++;
-
-        std::string number;
-		while (line[line_position] != char(32))    //read number of wins - we read till we got spacebar
-		{
-            number += line[line_position];
-			line_position++;
-		}
-        int win_number = stoi(number);
-
-		line_position++;
-        number.clear();
-		while (line_position <= line.length())    //read number of losses - because this is the last data in out line, we read till we reach the end of line
-		{
-            number += line[line_position];
-			line_position++;
-		}
-        int lose_number = stoi(number);
-
-        PlayersData.push_back({line_number, nick, password, win_number, lose_number});   //push_back to the struct
-        line_number++;                        //we increase the line number
-	}
+    //First, server read data from file
+    ReadFromFile(PlayersData);
 
 	//connecting
     WSADATA wsaData;
@@ -231,7 +232,7 @@ int main()
         return 1;
     }
 
-    do
+    do   //we accept players
     {
         // Accept a client socket
         ClientSocket = accept(ListenSocket, NULL, NULL);
@@ -240,7 +241,9 @@ int main()
             continue;       //if something unexpected happened, we will not create client thread
         }
 
-        ClientThread(ClientSocket, PlayersData);
+        std::thread(ClientThread, ClientSocket, std::ref(PlayersData)).detach();
 
     } while (true);
+
+    SaveFile(PlayersData);   //when server is turning off it save data - that never happened
 }

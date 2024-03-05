@@ -69,13 +69,6 @@ int ConnectToServer(std::string IP)   //return 1 if not able to connect     retu
     return 0;   // no error = successful connection
 }
 
-void Disconnect()
-{
-    sendbuf[0] = '\n';        //we send that specyfic mark so server will know that we disconnect
-    send(ServerSocket, sendbuf, 256, NULL);
-    shutdown(ServerSocket, closesocket(ServerSocket));     //we shut down the socket to unlock every blocked socket function (such as receive)
-}
-
 void ServerMessages(bool& ConnectStatus)      //here we will receive messages from server
 {
     do
@@ -95,7 +88,7 @@ void ServerMessages(bool& ConnectStatus)      //here we will receive messages fr
             strcpy_s(lastrecv, recvbuf);    //we copy the message from server, so other functions can read them, and we don't have to worry about that memset in 83 line
         }
 
-        if (recvbuf[0] == '0')
+        if (recvbuf[0] == '0')    //we use it when we connect with server
         {
             WFS.notify_one();     //we notify the main client that we got message from server
         }
@@ -103,24 +96,42 @@ void ServerMessages(bool& ConnectStatus)      //here we will receive messages fr
     } while (true);
 }
 
-bool LoginOrRegister(char Option, std::string NickAndPassword)
+void Disconnect(bool& IsConnected)
+{
+    sendbuf[0] = '\n';        //we send that specyfic mark so server will know that we disconnect
+    send(ServerSocket, sendbuf, 256, NULL);
+    shutdown(ServerSocket, closesocket(ServerSocket));     //we shut down the socket to unlock every blocked socket function (such as receive)
+    IsConnected = false;
+}
+
+int LoginOrRegister(char Option, std::string NickAndPassword, bool& IsConnected)
 {
     NickAndPassword = Option + std::string(" ") + NickAndPassword;   //we add the info so we have: [L or C](spacebar)nick(spacebar)password
 
-    send(ServerSocket, NickAndPassword.c_str(), NickAndPassword.length(), NULL);    //we send message to the server
+    int sendResult = send(ServerSocket, NickAndPassword.c_str(), NickAndPassword.length(), NULL);    //we send message to the server
+    if (sendResult < 0)   //if something went wrong we call disconnect function
+    {
+        Disconnect(IsConnected);
+        return 2;     //we have to send info to Client.cpp that we lost connection
+    }
 
-    std::unique_lock<std::mutex> lck(WaitForServer);                                  //and we wait for answer
+    std::unique_lock<std::mutex> lck(WaitForServer);           //and we wait for answer
     WFS.wait(lck);
 
     //we read last receive message from server
     if (std::string(lastrecv) == "Login" or std::string(lastrecv) == "Register")    //if login or register operation is success we return true, otherwise we return false
     {
         memset(lastrecv, NULL, sizeof(lastrecv));    //when we use the lastrecv we clean. We don't have to worry that we clean the next message from server,
-        return true;                                // because server sends messages only when we ask him about something (there's no race condition) - at least in that moment
+        return 0;                                // because server sends messages only when we ask him about something (there's no race condition) - at least in that moment
     }
     else if (std::string(lastrecv) == "Error")
     {
         memset(lastrecv, NULL, sizeof(lastrecv));
-        return false;
+        return 1;
     }
+}
+
+void DeleteAccounts()
+{
+    send(ServerSocket, "DELETE", std::string("DELETE").length(), NULL);
 }
