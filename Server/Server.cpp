@@ -130,6 +130,18 @@ void ClientThread(SOCKET ClientSocket, std::vector<Players>& PlayersData)
             }
         }
 
+        if (recvbuf[0] == 'C')   //if first char is C that means client wants to change his password
+        {
+            if (PlayersData[pos].Index != Index)
+            {
+                pos = GetPositionInVector(Index, PlayersData);
+            }
+
+            PlayersData[pos].password = std::string(recvbuf).substr(2);  //overwrite the old password
+
+            send(ClientSocket, "CHANGED", sizeof("CHANGED"), NULL);
+        }
+
         if (std::string(recvbuf) == "DELETE")   //if client want to delete his account, we remove it from vector and break the infinite loop (and then in line 110 it overwrite the .txt file)
         {
             if (PlayersData[pos].Index != Index)

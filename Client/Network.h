@@ -88,6 +88,11 @@ void ServerMessages(bool& ConnectStatus)      //here we will receive messages fr
             strcpy_s(lastrecv, recvbuf);    //we copy the message from server, so other functions can read them, and we don't have to worry about that memset in 83 line
         }
 
+        if (std::string(recvbuf) == "CHANGED")
+        {
+            WFS.notify_one();
+        }
+
         if (recvbuf[0] == '0')    //we use it when we connect with server
         {
             WFS.notify_one();     //we notify the main client that we got message from server
@@ -133,5 +138,20 @@ int LoginOrRegister(char Option, std::string NickAndPassword, bool& IsConnected)
 
 void DeleteAccounts()
 {
-    send(ServerSocket, "DELETE", std::string("DELETE").length(), NULL);
+    int sendResult = send(ServerSocket, "DELETE", std::string("DELETE").length(), NULL);
+}
+
+bool ChangePasswordMessage(std::string& sendmessage, bool& IsConnected)
+{
+    int SendResult = send(ServerSocket, sendmessage.c_str(), sendmessage.length(), NULL);
+    if (SendResult < 0)
+    {
+        Disconnect(IsConnected);
+        return false;
+    }
+
+    std::unique_lock<std::mutex> lck(WaitForServer);           //wait until server change the password
+    WFS.wait(lck);
+
+    return true;
 }

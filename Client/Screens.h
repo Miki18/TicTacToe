@@ -154,7 +154,7 @@ void IPinsert(Screen& screen, char (&IP)[16])
     ImGui::End();
 }
 
-void ResultScreen(Screen& screen, std::string& ResultValue)
+void ResultScreen(Screen& screen, std::string& ResultValue, bool IsConnected)
 {
     ImGuiStyle& style = ImGui::GetStyle();
     const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());  //it tell us screen width and height
@@ -175,7 +175,14 @@ void ResultScreen(Screen& screen, std::string& ResultValue)
     SetBackButton();
     if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
     {
-        screen = Single_Multi_Choose;
+        if (IsConnected == true)   //if we are connected to the server go to server menu (aka MultiplayerMenu), if not we go to Single_Multi_Choose (aka starter menu).
+        {
+            screen = MultiplayerMenu;
+        }
+        else
+        {
+            screen = Single_Multi_Choose;
+        }
     }
     ImGui::End();
 }

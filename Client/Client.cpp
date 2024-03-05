@@ -413,7 +413,7 @@ int main()
 
         else if (screen == Result)
         {
-            ResultScreen(screen, ResultValue);
+            ResultScreen(screen, ResultValue, IsConnected);
         }
 
         else if (screen == Connect_not)
@@ -690,9 +690,12 @@ int main()
             ImGui::Text("Password:");
             if (ImGui::InputText("", password, sizeof(password), ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                if (std::string(password).length() < 20 and strcmp(password, reppassword) == 0 and std::string(password).length() > 0) //we check if both passwords are the same and if they are not null or longer than 20
+                if (std::string(password).length() >= 20 or (std::string(password) != std::string(reppassword) and std::string(reppassword).empty() == false) or std::string(password).length() <= 0)
                 {
-                    fill[2] = true;        //if 2 passwords are the same and first password is correct, it means the second one also must be correct
+                    error[1] = true;
+                }
+                else
+                {        
                     fill[1] = true;
                     error[1] = false;
                 
@@ -718,10 +721,6 @@ int main()
                         }
                     }
                 }
-                else
-                {
-                    error[1] = true;
-                }
             }
             ImGui::End();
 
@@ -737,9 +736,12 @@ int main()
             ImGui::Text("Repeat Password:");
             if (ImGui::InputText("", reppassword, sizeof(reppassword), ImGuiInputTextFlags_EnterReturnsTrue))
             {
-                if (std::string(reppassword).length() < 20 and strcmp(password, reppassword) == 0 and std::string(reppassword).length() > 0) //we check if both password are the same and if they are not null
+                if (std::string(reppassword).length() >= 20 or (std::string(password) != std::string(reppassword) and std::string(password).empty() == false) or std::string(reppassword).length() <= 0)
                 {
-                    fill[1] = true;        //if 2 passwords are the same and second password is correct, it means the first one also must be correct
+                    error[2] = true;
+                }
+                else
+                {
                     fill[2] = true;
                     error[2] = false;
 
@@ -764,10 +766,6 @@ int main()
                             screen = Connect_not;
                         }
                     }
-                }
-                else
-                {
-                    error[2] = true;
                 }
             }
             ImGui::End();
@@ -823,7 +821,7 @@ int main()
             style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
             if (ImGui::Button("Singleplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
-                //
+                screen = Single_Menu;
             }
 
             //Multiplayer game
@@ -892,6 +890,21 @@ int main()
         {
             ShowLogo();
 
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);    //we set gray background for out stats window
+            ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+            ImGui::SetWindowFontScale(3.0f);
+            //style.Colors[ImGuiCol_WindowBg] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
+            ImGui::Text("Hello");
+            for (int i = 0; i < 10; i++)
+            {
+                ImGui::Text("NextLine");
+            }
+            ImGui::Text("End line");
+            ImGui::End();
+
+            style.Colors[ImGuiCol_WindowBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);   //we return to white background
             SetBackButton();
             if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
@@ -902,12 +915,12 @@ int main()
 
         else if (screen == ChangePassword)   //to change password user have to write password 2 times
         {
-            char password[30];
+            char password[30];   //variables
             char reppassword[30];
             bool error[2];
             bool fill[2];
 
-            if (FlowControl == false)
+            if (FlowControl == false)     //clear memory
             {
                 memset(password, NULL, sizeof(password));
                 memset(reppassword, NULL, sizeof(reppassword));
@@ -919,7 +932,7 @@ int main()
             
             ShowLogo();
 
-            
+            //password
             ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
             ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
             ImGui::Begin("Insert_nick", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
@@ -942,13 +955,24 @@ int main()
                     fill[0] = true;
                     if (fill[0] == true and fill[1] == true)
                     {
-                        std::cout << "send message" << std::endl;
+                        std::string send = "C " + std::string(password);    //we write C in first position to tell server that we want to change the password
+                        bool ret = ChangePasswordMessage(send, IsConnected);
+                        if (ret == false)
+                        {
+                            FlowControl = false;
+                            screen = Single_Multi_Choose;    //if something went wrong we go to main menu
+                        }
+                        else if (ret == true)
+                        {
+                            FlowControl = false;
+                            screen = Profile;    //if we changed the password we go to profile
+                        }
                     }
                 }
             }
             ImGui::End();
 
-            //password
+            //repeat password
             ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
             ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 13 / 24), NULL);
             ImGui::Begin("Insert_password", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
@@ -971,7 +995,18 @@ int main()
                     fill[1] = true;
                     if (fill[0] == true and fill[1] == true)
                     {
-                        std::cout << "send message" << std::endl;
+                        std::string send = "C " + std::string(password);    //we write C in first position to tell server that we want to change the password
+                        bool ret = ChangePasswordMessage(send, IsConnected);
+                        if (ret == false)
+                        {
+                            FlowControl = false;
+                            screen = Single_Multi_Choose;    //if something went wrong we go to main menu
+                        }
+                        else if (ret == true)
+                        {
+                            FlowControl = false;
+                            screen = Profile;    //if we changed the password we go to profile
+                        }
                     }
                 }
             }
