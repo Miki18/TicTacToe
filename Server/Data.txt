@@ -1,5 +1,5 @@
-jan kowalski 5 6
-miki18 password 0 0
+jan kowalski 6 8
+miki18 password 2 1
 sweet_cat123 kochamkoty 5 3
 sieci komputerowe 1 2
 pies hau 5 6

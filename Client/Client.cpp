@@ -24,6 +24,9 @@
 #include "GameMechanics.h"
 #include "Network.h"
 
+int d;    //for coordinate for multiplayer
+int g;
+
 std::mutex wait_for_player;
 std::condition_variable cv;
 
@@ -77,7 +80,75 @@ void GameThread(char Opponent_level, char& Mark, Screen& screen, std::string& Re
     YourTurn = 0;
     if (Opponent_level == 'm')
     {
-        //multiplayer game
+        ResultValue = "None";
+        while(true)      //game loop
+        {
+
+            if (ResultValue == "Lose")       //we need double check
+            {
+                break;
+            }
+            if (ResultValue == "Win")
+            {
+                break;
+            }
+            if (ResultValue == "Draw")
+            {
+                break;
+            }
+
+            std::unique_lock<std::mutex> lck(WaitForServer);           //and we wait for answer
+            WFS.wait(lck);
+
+            if (ResultValue == "Lose")
+            {
+                break;
+            }
+            if (ResultValue == "Win")
+            {
+                break;
+            }
+            if (ResultValue == "Draw")
+            {
+                break;
+            }
+
+            YourTurn = 1;     //set your turn on true
+
+            PT.notify_one();     //start timer
+
+            std::unique_lock<std::mutex> lock(wait_for_player);   //wait for player
+            cv.wait(lock);
+
+            if (TimeLimit == 0)
+            {
+                ServerMove(6, 6);     //we send 6 when we used all time
+                ResultValue = "Lose";
+                TimeLimit = 15;
+                break;
+            }
+            else
+            {
+                TimeLimit = 15;
+            }
+
+            YourTurn = 0;    //your turn ends
+
+            int result = BoardCheck();   //we check Game Board
+
+            if (result == 0)
+            {
+                ServerMove(d, g);    //send info to the server
+            }
+            else if (result == 1)
+            {
+                ServerMove(4, 4);     //4 4 means that X won
+            }
+            else if (result == 2)
+            {
+                ServerMove(5, 5);    //5 5 means that O won
+            }
+        }
     }
     else    //single player fragment
     {
@@ -201,6 +272,7 @@ int main()
 
     bool HasTimeControl = false;
     char IP[16];     //for IP
+    memset(IP, NULL, 16);
     bool IsConnected = false;   //we need to know if we are connected right now or not.
     bool FlowControl = false;    //some code we need to do only once in infinite loop, so we need that variable
 
@@ -378,10 +450,14 @@ int main()
                                 if (Mark == 'X')
                                 {
                                     GameBoardStatus[a][i] = 'X';
+                                    d = a;
+                                    g = i;
                                 }
                                 else
                                 {
                                     GameBoardStatus[a][i] = 'O';
+                                    d = a;
+                                    g = i;
                                 }
 
                                 cv.notify_one();
@@ -445,7 +521,7 @@ int main()
             {
                 IsConnected = true;
 
-                std::thread(ServerMessages, std::ref(IsConnected)).detach();   //we start messages with server
+                std::thread(ServerMessages, std::ref(IsConnected), std::ref(Mark), std::ref(ResultValue)).detach();   //we start messages with server
 
                 std::unique_lock<std::mutex> lck(WaitForServer);
                 WFS.wait(lck);                   //wait for server
@@ -831,7 +907,15 @@ int main()
             ImGui::SetWindowFontScale(3.0f);
             if (ImGui::Button("Multiplayer", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
-                //
+                bool res = EnterGame(IsConnected);
+                if (res == false)
+                {
+                    screen = Single_Multi_Choose;
+                }
+                else
+                {
+                    screen = WaitForPlayers;
+                }
             }
 
             //Exit Button
@@ -852,7 +936,7 @@ int main()
             ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 9 / 24), NULL);
             ImGui::Begin("Result", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
             ImGui::SetWindowFontScale(3.0f);
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 4/ 10);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 4 / 10);
             ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
             ImGui::Text("Are you sure?");
             ImGui::Text("This action is permanent!");
@@ -890,24 +974,36 @@ int main()
         {
             ShowLogo();
 
-            ImGui::SetNextWindowSize(ImVec2(mode->width / 4.5, mode->height / 6), NULL);
-            ImGui::SetNextWindowPos(ImVec2(mode->width * 7.6 / 20, mode->height * 7 / 24), NULL);
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 3, mode->height / 4), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 6 / 20, mode->height * 7 / 24), NULL);
             style.Colors[ImGuiCol_WindowBg] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);    //we set gray background for out stats window
             ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysVerticalScrollbar);
             ImGui::SetWindowFontScale(3.0f);
-            //style.Colors[ImGuiCol_WindowBg] = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
-            ImGui::Text("Hello");
-            for (int i = 0; i < 10; i++)
+            if (FlowControl == false)
             {
-                ImGui::Text("NextLine");
+                bool res = GetServerData(IsConnected);
+                if (res == false)     //if something is wrong we disconnect and return to starter menu
+                {
+                    screen = Single_Multi_Choose;
+                    FlowControl = false;
+                }
+                else
+                {
+                    FlowControl = true;
+                }
             }
-            ImGui::Text("End line");
+            ImGui::Text("Nick   win   lose");
+            for (int i = 0; i < data.size(); i++)
+            {
+                ImGui::Text("%s", data[i].c_str());
+            }
             ImGui::End();
 
             style.Colors[ImGuiCol_WindowBg] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);   //we return to white background
             SetBackButton();
             if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
             {
+                FlowControl = false;
                 screen = Profile;
             }
             ImGui::End();
@@ -1016,6 +1112,47 @@ int main()
             {
                 FlowControl = false;
                 screen = Profile;
+            }
+            ImGui::End();
+        }
+
+        else if (screen == WaitForPlayers)
+        {
+            ShowLogo();
+
+            //Info about results
+            ImGui::SetNextWindowSize(ImVec2(mode->width / 3, mode->height / 6), NULL);
+            ImGui::SetNextWindowPos(ImVec2(mode->width * 7 / 20, mode->height * 9 / 24), NULL);
+            ImGui::Begin("Wait", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoResize);
+            ImGui::SetWindowFontScale(3.0f);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() * 1 / 10);
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() / 2);
+            ImGui::Text("Wait for other player");
+            ImGui::End();
+
+            //check if server doesn't send anything
+            if (EnterTheGame == true)
+            {
+                EnterTheGame = false;
+                std::thread(GameThread, 'm', std::ref(Mark), std::ref(screen), std::ref(ResultValue), std::ref(TimeLimit), std::ref(YourTurn)).detach();
+                HasTimeControl = true;                  //in multiplayer we always have time control
+                std::thread(TimeControl, std::ref(TimeLimit), std::ref(YourTurn), std::ref(screen)).detach();
+                screen = GameScreen;
+            }
+
+            //back
+            SetBackButton();
+            if (ImGui::Button("Back", ImVec2(mode->width / 5, mode->height / 6.5)))
+            {
+                bool res = LeaveGame(IsConnected);
+                if (res == false)
+                {
+                    screen = Single_Multi_Choose;
+                }
+                else
+                {
+                    screen = MultiplayerMenu;
+                }
             }
             ImGui::End();
         }

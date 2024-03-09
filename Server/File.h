@@ -11,6 +11,7 @@ public:
 	int win_number;
 	int lose_number;
 	bool IsLogged;   //player can't log in 2 times at the same time
+	int WantPlay;   //-2 when player doesn't want to play multiplayer game or enemy's index when he wants or -1 when he is waiting in queue
 };
 
 void ReadFromFile(std::vector<Players>& PlayersData)
@@ -62,7 +63,7 @@ void ReadFromFile(std::vector<Players>& PlayersData)
 		}
 		int lose_number = stoi(number);
 
-		PlayersData.push_back({line_number, nick, password, win_number, lose_number, false});   //push_back to the struct
+		PlayersData.push_back({line_number, nick, password, win_number, lose_number, false, -2});   //push_back to the struct
 		line_number++;                        //we increase the line number
 	}
 	data.close();    //we close data, because we dont' need it anymore

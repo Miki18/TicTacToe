@@ -18,7 +18,8 @@ enum Screen {
     DeleteAccount,
     Profile,
     Stats,
-    ChangePassword
+    ChangePassword,
+    WaitForPlayers
 };
 
 GLuint texture;

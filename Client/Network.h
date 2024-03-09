@@ -11,6 +11,9 @@ char lastrecv[256];
 #define DEFAULT_PORT "27015"
 //////
 
+std::vector<std::string> data;
+bool EnterTheGame = false;
+
 extern std::mutex WaitForServer;
 extern std::condition_variable WFS;   //extern mutex
 
@@ -69,7 +72,7 @@ int ConnectToServer(std::string IP)   //return 1 if not able to connect     retu
     return 0;   // no error = successful connection
 }
 
-void ServerMessages(bool& ConnectStatus)      //here we will receive messages from server
+void ServerMessages(bool& ConnectStatus, char& Mark, std::string& ResultValue)      //here we will receive messages from server
 {
     do
     {
@@ -91,6 +94,65 @@ void ServerMessages(bool& ConnectStatus)      //here we will receive messages fr
         if (std::string(recvbuf) == "CHANGED")
         {
             WFS.notify_one();
+        }
+
+        if (std::string(recvbuf) == "START")                 //if server send a START that means it starts sending data
+        {
+            while (true)
+            {
+                memset(recvbuf, NULL, sizeof(recvbuf));   //we receive and add it to the vector until we got END message
+                recv(ServerSocket, recvbuf, 256, NULL);
+
+                if (std::string(recvbuf) == "END")    //if we got END message that means server stop sending data
+                {
+                    WFS.notify_one();
+                    break;
+                }
+                else
+                {
+                    data.push_back(std::string(recvbuf));   //if we got data we add them to vector
+                }
+            }
+        }
+
+        if (std::string(recvbuf) == "GAME")
+        {
+            EnterTheGame = true;
+        }
+
+        if (recvbuf[0] == 'T')    //it's your turn (in multiplayer game)
+        {
+            Sleep(100);
+            Mark = recvbuf[2];
+            WFS.notify_one();
+        }
+
+        if (recvbuf[0] == 'W')
+        {
+            if (recvbuf[1] == 'L')
+            {
+                ResultValue = "Lose";
+                WFS.notify_all();
+            }
+            else if (recvbuf[1] == 'W')
+            {
+                ResultValue = "Win";
+                WFS.notify_all();
+            }
+            else if (recvbuf[1] == 'D')
+            {
+                ResultValue = "Draw";
+                WFS.notify_all();
+            }
+            else if (recvbuf[1] == 'T')
+            {
+                ResultValue = "Win";
+                WFS.notify_all();
+            }
+            else
+            {
+                GameBoardStatus[recvbuf[1]][recvbuf[2]] = recvbuf[3];
+            }
         }
 
         if (recvbuf[0] == '0')    //we use it when we connect with server
@@ -154,4 +216,69 @@ bool ChangePasswordMessage(std::string& sendmessage, bool& IsConnected)
     WFS.wait(lck);
 
     return true;
+}
+
+bool GetServerData(bool& IsConnected)
+{
+    int SendResult = send(ServerSocket, "GiveData", std::string("GiveData").length(), NULL);
+    if (SendResult < 0)
+    {
+        Disconnect(IsConnected);
+        return false;
+    }
+
+    std::unique_lock<std::mutex> lck(WaitForServer);           //wait until server change the password
+    WFS.wait(lck);
+
+    return true;
+}
+
+bool EnterGame(bool& IsConnected)
+{
+    int SendResult = send(ServerSocket, "EnterGame", std::string("EnterGame").length(), NULL);
+    if (SendResult < 0)
+    {
+        Disconnect(IsConnected);
+        return false;
+    }
+
+    return true;
+}
+
+bool LeaveGame(bool& IsConnected)
+{
+    int SendResult = send(ServerSocket, "AbandonGame", std::string("AbandonGame").length(), NULL);
+    if (SendResult < 0)
+    {
+        Disconnect(IsConnected);
+        return false;
+    }
+
+    return true;
+}
+
+void ServerMove(int d, int g)
+{
+    char message[2];
+    if (d == 4)    //X won
+    {
+        message[0] = 'W';
+        message[1] = 'X';
+    }
+    else if (d == 5)  //O won
+    {
+        message[0] = 'W';
+        message[1] = 'O';
+    }
+    else if(d == 6)
+    {
+        message[0] = 'W';
+        message[1] = 'T';
+    }
+    else
+    {
+        message[0] = d;
+        message[1] = g;
+    }
+    send(ServerSocket, message, 2, NULL);
 }
