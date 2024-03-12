@@ -43,6 +43,7 @@ Server collects data and save them when player disconnects. Server has following
 (Player1Nick)(spacebar)(Player1password)(spacebar)(Player1number of wins)(spacebar)(Player1number of loses)<br>
 (Player2Nick)(spacebar)(Player2password)(spacebar)(Player2number of wins)(spacebar)(Player2number of loses)<br>
 ...<br>
-That allows to easily import data from one server to another.
-
+That allows to easily import data from one server to another.<br>
+<br>
+Program was created by Miki18<br>
 <sub>Last update data: 12.03.2024</sub>
