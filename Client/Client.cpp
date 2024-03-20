@@ -12,6 +12,7 @@
 #include <locale.h>
 #include <GLFW/glfw3.h>
 #include <thread>
+#include <cctype>
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -715,15 +716,33 @@ int main()
             ImGui::SetWindowFontScale(3.0f);
             if (error[0] == true)
             {
-                ImGui::Text("Maximum 20");
+                ImGui::Text("Wrong nick");
             }
             ImGui::Text("Nick:");
             if (ImGui::InputText("", nick, sizeof(nick), ImGuiInputTextFlags_EnterReturnsTrue))
             {
+                bool alfanumeric = true;      //When client creates new account we have to control what he inserts
                 if (std::string(nick).length() < 20)
                 {
-                    fill[0] = true;
-                    error[0] = false;
+                    for (int checkalfa = 0; checkalfa < std::string(nick).length(); checkalfa++)
+                    {
+                        if (!isalnum(nick[checkalfa]))
+                        {
+                            alfanumeric = false;
+                            break;
+                        }
+                    }
+
+                    if (alfanumeric == false)
+                    {
+                        error[0] = true;
+                        fill[0] = false;
+                    }
+                    else
+                    {
+                        error[0] = false;
+                        fill[0] = true;
+                    }
 
                     if (fill[0] == true and fill[1] == true and fill[2] == true)
                     {
@@ -766,15 +785,33 @@ int main()
             ImGui::Text("Password:");
             if (ImGui::InputText("", password, sizeof(password), ImGuiInputTextFlags_EnterReturnsTrue))
             {
+                bool alfanumeric = true;
+                for (int checkalfa = 0; checkalfa < std::string(password).length(); checkalfa++)
+                {
+                    if (!isalnum(password[checkalfa]))
+                    {
+                        alfanumeric = false;
+                        break;
+                    }
+                }
+
                 if (std::string(password).length() >= 20 or (std::string(password) != std::string(reppassword) and std::string(reppassword).empty() == false) or std::string(password).length() <= 0)
                 {
                     error[1] = true;
                 }
                 else
-                {        
-                    fill[1] = true;
-                    error[1] = false;
-                
+                {
+                    if (alfanumeric == false)
+                    {
+                        error[1] = true;
+                        fill[1] = false;
+                    }
+                    else
+                    {
+                        error[1] = false;
+                        fill[1] = true;
+                    }
+
                     if (fill[0] == true and fill[1] == true and fill[2] == true)
                     {
                         std::string send = std::string(nick) + ' ' + std::string(password);
@@ -812,14 +849,32 @@ int main()
             ImGui::Text("Repeat Password:");
             if (ImGui::InputText("", reppassword, sizeof(reppassword), ImGuiInputTextFlags_EnterReturnsTrue))
             {
+                bool alfanumeric = true;
+                for (int checkalfa = 0; checkalfa < std::string(reppassword).length(); checkalfa++)
+                {
+                    if (!isalnum(reppassword[checkalfa]))
+                    {
+                        alfanumeric = false;
+                        break;
+                    }
+                }
+
                 if (std::string(reppassword).length() >= 20 or (std::string(password) != std::string(reppassword) and std::string(password).empty() == false) or std::string(reppassword).length() <= 0)
                 {
                     error[2] = true;
                 }
                 else
                 {
-                    fill[2] = true;
-                    error[2] = false;
+                    if (alfanumeric == false)
+                    {
+                        error[2] = true;
+                        fill[2] = false;
+                    }
+                    else
+                    {
+                        error[2] = false;
+                        fill[2] = true;
+                    }
 
                     if (fill[0] == true and fill[1] == true and fill[2] == true)
                     {

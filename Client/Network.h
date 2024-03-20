@@ -227,7 +227,7 @@ bool GetServerData(bool& IsConnected)
         return false;
     }
 
-    std::unique_lock<std::mutex> lck(WaitForServer);           //wait until server change the password
+    std::unique_lock<std::mutex> lck(WaitForServer);           //wait until server send data
     WFS.wait(lck);
 
     return true;
